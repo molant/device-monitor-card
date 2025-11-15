@@ -3,7 +3,7 @@
  * A custom Home Assistant Lovelace card that displays low battery devices
  * with device names from the device registry.
  *
- * @version 1.2.0
+ * @version 1.2.1
  * @author Custom Card
  * @license MIT
  */
@@ -627,35 +627,9 @@ class BatteryDeviceCardEditor extends HTMLElement {
     });
     event.detail = { config: newConfig };
     this.dispatchEvent(event);
-  }
 
-  valueChanged(ev) {
-    if (!this._config) {
-      return;
-    }
-
-    const target = ev.target;
-    const configValue = target.configValue;
-    let value = target.value;
-
-    if (target.type === 'checkbox') {
-      value = target.checked;
-    } else if (target.type === 'number') {
-      value = value === '' ? undefined : Number(value);
-    }
-
-    if (this._config[configValue] === value) {
-      return;
-    }
-
-    const newConfig = { ...this._config };
-    if (value === undefined || value === '') {
-      delete newConfig[configValue];
-    } else {
-      newConfig[configValue] = value;
-    }
-
-    this.configChanged(newConfig);
+    // Update internal config to reflect changes
+    this._config = newConfig;
   }
 
   render() {
@@ -716,10 +690,9 @@ class BatteryDeviceCardEditor extends HTMLElement {
             <div class="description">Card title text</div>
           </div>
           <input
+            id="title"
             type="text"
-            .value="${this._config.title || 'Low Battery'}"
-            .configValue="${'title'}"
-            @input="${this.valueChanged}"
+            value="${this._config.title || 'Low Battery'}"
           />
         </div>
 
@@ -729,12 +702,11 @@ class BatteryDeviceCardEditor extends HTMLElement {
             <div class="description">Low battery percentage threshold</div>
           </div>
           <input
+            id="battery_threshold"
             type="number"
             min="0"
             max="100"
-            .value="${this._config.battery_threshold || 20}"
-            .configValue="${'battery_threshold'}"
-            @input="${this.valueChanged}"
+            value="${this._config.battery_threshold !== undefined ? this._config.battery_threshold : 20}"
           />
         </div>
 
@@ -744,11 +716,10 @@ class BatteryDeviceCardEditor extends HTMLElement {
             <div class="description">Limit displayed devices (leave empty for no limit)</div>
           </div>
           <input
+            id="collapse"
             type="number"
             min="1"
-            .value="${this._config.collapse || ''}"
-            .configValue="${'collapse'}"
-            @input="${this.valueChanged}"
+            value="${this._config.collapse || ''}"
             placeholder="No limit"
           />
         </div>
@@ -759,10 +730,9 @@ class BatteryDeviceCardEditor extends HTMLElement {
             <div class="description">Show all battery devices, not just low battery</div>
           </div>
           <input
+            id="all_devices"
             type="checkbox"
-            .checked="${this._config.all_devices || false}"
-            .configValue="${'all_devices'}"
-            @change="${this.valueChanged}"
+            ${this._config.all_devices ? 'checked' : ''}
           />
         </div>
 
@@ -772,19 +742,55 @@ class BatteryDeviceCardEditor extends HTMLElement {
             <div class="description">Enable debug logging in browser console</div>
           </div>
           <input
+            id="debug"
             type="checkbox"
-            .checked="${this._config.debug || false}"
-            .configValue="${'debug'}"
-            @change="${this.valueChanged}"
+            ${this._config.debug ? 'checked' : ''}
           />
         </div>
       </div>
     `;
 
-    // Add event listeners
-    this.querySelectorAll('input').forEach(input => {
-      const eventType = input.type === 'checkbox' ? 'change' : 'input';
-      input.addEventListener(eventType, (ev) => this.valueChanged(ev));
+    // Add event listeners after HTML is inserted
+    const titleInput = this.querySelector('#title');
+    const thresholdInput = this.querySelector('#battery_threshold');
+    const collapseInput = this.querySelector('#collapse');
+    const allDevicesInput = this.querySelector('#all_devices');
+    const debugInput = this.querySelector('#debug');
+
+    titleInput.addEventListener('input', (ev) => {
+      const newConfig = { ...this._config };
+      newConfig.title = ev.target.value;
+      this.configChanged(newConfig);
+    });
+
+    thresholdInput.addEventListener('input', (ev) => {
+      const newConfig = { ...this._config };
+      const value = Number(ev.target.value);
+      newConfig.battery_threshold = value;
+      this.configChanged(newConfig);
+    });
+
+    collapseInput.addEventListener('input', (ev) => {
+      const newConfig = { ...this._config };
+      const value = ev.target.value;
+      if (value === '') {
+        delete newConfig.collapse;
+      } else {
+        newConfig.collapse = Number(value);
+      }
+      this.configChanged(newConfig);
+    });
+
+    allDevicesInput.addEventListener('change', (ev) => {
+      const newConfig = { ...this._config };
+      newConfig.all_devices = ev.target.checked;
+      this.configChanged(newConfig);
+    });
+
+    debugInput.addEventListener('change', (ev) => {
+      const newConfig = { ...this._config };
+      newConfig.debug = ev.target.checked;
+      this.configChanged(newConfig);
     });
   }
 }
@@ -804,7 +810,7 @@ window.customCards.push({
 });
 
 console.info(
-  '%c BATTERY-DEVICE-CARD %c 1.2.0 ',
+  '%c BATTERY-DEVICE-CARD %c 1.2.1 ',
   'color: white; background: #039be5; font-weight: 700;',
   'color: #039be5; background: white; font-weight: 700;'
 );

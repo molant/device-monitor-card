@@ -366,6 +366,14 @@ MIT License - see LICENSE file for details
 
 ## Changelog
 
+### v1.2.1 (2024-11-15)
+
+- **Bug Fix**: Fixed visual editor not properly loading existing config values
+- **Bug Fix**: Fixed checkboxes requiring double-click to toggle
+- **Bug Fix**: Fixed config updates not being reflected in the editor
+- **Improvement**: Switched from Lit-Element syntax to standard DOM manipulation for better compatibility
+- **Improvement**: Editor now properly updates internal state when values change
+
 ### v1.2.0 (2024-11-15)
 
 - **Feature**: Added visual card editor for easy configuration in Home Assistant UI
