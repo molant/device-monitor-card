@@ -1,0 +1,31 @@
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
+
+# Build
+build/
+*.min.js
+*.map
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Home Assistant
+secrets.yaml
+.HA_VERSION
