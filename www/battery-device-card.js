@@ -3,7 +3,7 @@
  * A custom Home Assistant Lovelace card that displays low battery devices
  * with device names from the device registry.
  *
- * @version 1.0.2
+ * @version 1.1.0
  * @author Custom Card
  * @license MIT
  */
@@ -13,6 +13,7 @@ class BatteryDeviceCard extends HTMLElement {
     super();
     this.attachShadow({ mode: 'open' });
     this._config = {};
+    this._expanded = false;
   }
 
   /**
@@ -27,6 +28,8 @@ class BatteryDeviceCard extends HTMLElement {
       battery_threshold: config.battery_threshold || 20,
       title: config.title || 'Low Battery',
       debug: config.debug || false,
+      collapse: config.collapse,
+      all_devices: config.all_devices || false,
       ...config
     };
 
@@ -189,12 +192,14 @@ class BatteryDeviceCard extends HTMLElement {
 
     const allDevices = Object.values(devices);
     const lowBatteryDevices = allDevices.filter(d => d.isLow);
+    const normalBatteryDevices = allDevices.filter(d => !d.isLow);
 
     // Summary debug logging
     if (this._config.debug) {
       console.log('[Battery Card] Summary:', {
         totalBatteryDevices: allDevices.length,
         lowBatteryDevices: lowBatteryDevices.length,
+        normalBatteryDevices: normalBatteryDevices.length,
         threshold,
         devices: allDevices.map(d => ({
           name: d.deviceName,
@@ -207,6 +212,13 @@ class BatteryDeviceCard extends HTMLElement {
 
     return {
       lowBatteryDevices: lowBatteryDevices.sort((a, b) => {
+        // Sort by battery level (lowest first), then by device name
+        if (typeof a.batteryLevel === 'number' && typeof b.batteryLevel === 'number') {
+          return a.batteryLevel - b.batteryLevel;
+        }
+        return a.deviceName.localeCompare(b.deviceName);
+      }),
+      normalBatteryDevices: normalBatteryDevices.sort((a, b) => {
         // Sort by battery level (lowest first), then by device name
         if (typeof a.batteryLevel === 'number' && typeof b.batteryLevel === 'number') {
           return a.batteryLevel - b.batteryLevel;
@@ -317,6 +329,41 @@ class BatteryDeviceCard extends HTMLElement {
   }
 
   /**
+   * Render a single device row
+   */
+  _renderDevice(device) {
+    return `
+      <div class="device-item" data-device-id="${device.deviceId}">
+        <div class="device-icon">
+          <ha-icon
+            icon="${this._getBatteryIcon(device.batteryLevel)}"
+            style="color: ${this._getBatteryColor(device.batteryLevel)};"
+          ></ha-icon>
+        </div>
+        <div class="device-info">
+          <div class="device-name">${device.deviceName}</div>
+          <div class="device-secondary">
+            Last changed: ${this._formatLastChanged(device.lastChanged)}
+          </div>
+        </div>
+        <div class="battery-level">
+          ${typeof device.batteryLevel === 'number'
+            ? `${device.batteryLevel}%`
+            : device.batteryLevel}
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Toggle expanded state
+   */
+  _toggleExpanded() {
+    this._expanded = !this._expanded;
+    this.render();
+  }
+
+  /**
    * Render the card
    */
   render() {
@@ -329,7 +376,23 @@ class BatteryDeviceCard extends HTMLElement {
       return;
     }
 
-    const { lowBatteryDevices, totalBatteryDevices } = this._getBatteryDevices();
+    const { lowBatteryDevices, normalBatteryDevices, totalBatteryDevices } = this._getBatteryDevices();
+    const showAllDevices = this._config.all_devices;
+    const collapseLimit = this._config.collapse;
+
+    // Determine which devices to show
+    let devicesToShow = showAllDevices
+      ? [...lowBatteryDevices, ...normalBatteryDevices]
+      : lowBatteryDevices;
+
+    // Apply collapse logic
+    const shouldCollapse = collapseLimit && devicesToShow.length > collapseLimit;
+    const displayDevices = shouldCollapse && !this._expanded
+      ? devicesToShow.slice(0, collapseLimit)
+      : devicesToShow;
+
+    const hiddenCount = shouldCollapse ? devicesToShow.length - collapseLimit : 0;
+
     const title = `${this._config.title} (${lowBatteryDevices.length}/${totalBatteryDevices})`;
 
     this.shadowRoot.innerHTML = `
@@ -401,6 +464,35 @@ class BatteryDeviceCard extends HTMLElement {
           color: var(--primary-text-color);
         }
 
+        .divider {
+          height: 1px;
+          background: var(--divider-color, #e0e0e0);
+          margin: 8px 0;
+        }
+
+        .expand-button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 8px;
+          margin-top: 8px;
+          cursor: pointer;
+          color: var(--primary-color, #03a9f4);
+          font-size: 0.9em;
+          font-weight: 500;
+        }
+
+        .expand-button:hover {
+          background: var(--secondary-background-color, rgba(0, 0, 0, 0.05));
+          border-radius: 4px;
+        }
+
+        .expand-button ha-icon {
+          width: 20px;
+          height: 20px;
+          margin-left: 4px;
+        }
+
         .empty-state {
           text-align: center;
           padding: 32px 0;
@@ -432,47 +524,50 @@ class BatteryDeviceCard extends HTMLElement {
       <ha-card>
         <div class="card-header">${title}</div>
         <div class="card-content">
-          ${lowBatteryDevices.length === 0 ? `
+          ${lowBatteryDevices.length === 0 && !showAllDevices ? `
             <div class="empty-state">
               <ha-icon icon="mdi:battery-check"></ha-icon>
               <div class="empty-state-text">All batteries are OK!</div>
             </div>
           ` : `
             <div class="device-list">
-              ${lowBatteryDevices.map(device => `
-                <div class="device-item" data-device-id="${device.deviceId}">
-                  <div class="device-icon">
-                    <ha-icon
-                      icon="${this._getBatteryIcon(device.batteryLevel)}"
-                      style="color: ${this._getBatteryColor(device.batteryLevel)};"
-                    ></ha-icon>
-                  </div>
-                  <div class="device-info">
-                    <div class="device-name">${device.deviceName}</div>
-                    <div class="device-secondary">
-                      Last changed: ${this._formatLastChanged(device.lastChanged)}
-                    </div>
-                  </div>
-                  <div class="battery-level">
-                    ${typeof device.batteryLevel === 'number'
-                      ? `${device.batteryLevel}%`
-                      : device.batteryLevel}
-                  </div>
-                </div>
-              `).join('')}
+              ${displayDevices.map((device, index) => {
+                // Add divider between low and normal battery devices
+                const needsDivider = showAllDevices &&
+                  index === lowBatteryDevices.length &&
+                  lowBatteryDevices.length > 0 &&
+                  normalBatteryDevices.length > 0;
+
+                return (needsDivider ? '<div class="divider"></div>' : '') +
+                  this._renderDevice(device);
+              }).join('')}
             </div>
+            ${shouldCollapse ? `
+              <div class="expand-button" id="expand-button">
+                ${this._expanded
+                  ? `Show less<ha-icon icon="mdi:chevron-up"></ha-icon>`
+                  : `Show ${hiddenCount} more<ha-icon icon="mdi:chevron-down"></ha-icon>`
+                }
+              </div>
+            ` : ''}
           `}
         </div>
       </ha-card>
     `;
 
-    // Add click handlers
+    // Add click handlers for device items
     this.shadowRoot.querySelectorAll('.device-item').forEach(item => {
       item.addEventListener('click', () => {
         const deviceId = item.getAttribute('data-device-id');
         this._openDevice(deviceId);
       });
     });
+
+    // Add click handler for expand button
+    const expandButton = this.shadowRoot.querySelector('#expand-button');
+    if (expandButton) {
+      expandButton.addEventListener('click', () => this._toggleExpanded());
+    }
   }
 
   /**
@@ -482,7 +577,9 @@ class BatteryDeviceCard extends HTMLElement {
     return {
       battery_threshold: 20,
       title: 'Low Battery',
-      debug: false
+      debug: false,
+      collapse: undefined,
+      all_devices: false
     };
   }
 
@@ -508,7 +605,7 @@ window.customCards.push({
 });
 
 console.info(
-  '%c BATTERY-DEVICE-CARD %c 1.0.2 ',
+  '%c BATTERY-DEVICE-CARD %c 1.1.0 ',
   'color: white; background: #039be5; font-weight: 700;',
   'color: #039be5; background: white; font-weight: 700;'
 );

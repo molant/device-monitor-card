@@ -62,6 +62,8 @@ type: custom:battery-device-card
 battery_threshold: 20      # Optional, default: 20
 title: "Low Battery"       # Optional, default: "Low Battery"
 debug: true                # Optional, default: false - enables debug logging
+collapse: 5                # Optional, default: undefined (show all)
+all_devices: true          # Optional, default: false - show all battery devices
 ```
 
 ### Configuration Options
@@ -71,6 +73,8 @@ debug: true                # Optional, default: false - enables debug logging
 | `battery_threshold` | number | 20 | Battery percentage threshold for low battery alerts |
 | `title` | string | "Low Battery" | Card title |
 | `debug` | boolean | false | Enable debug logging in browser console |
+| `collapse` | number | undefined | If set, collapse to show only this many devices with expand button |
+| `all_devices` | boolean | false | Show all battery devices (low battery first, then divider, then normal) |
 
 ## How It Works
 
@@ -136,6 +140,37 @@ title: "Critical Batteries"
 ```
 
 Shows devices with battery < 15% with a custom title
+
+### Show All Battery Devices
+
+```yaml
+type: custom:battery-device-card
+all_devices: true
+title: "All Batteries"
+```
+
+Shows all battery devices - low battery devices first, then a divider, then devices with normal battery levels
+
+### Collapsed View
+
+```yaml
+type: custom:battery-device-card
+collapse: 3
+```
+
+Shows only first 3 devices, with an expand button to show the rest
+
+### Combined Features
+
+```yaml
+type: custom:battery-device-card
+battery_threshold: 25
+title: "Battery Monitor"
+all_devices: true
+collapse: 5
+```
+
+Shows all devices, collapses to 5 with expand button, uses 25% threshold
 
 ### Dashboard Example
 
@@ -330,6 +365,14 @@ Contributions are welcome! Please:
 MIT License - see LICENSE file for details
 
 ## Changelog
+
+### v1.1.0 (2024-11-15)
+
+- **Feature**: Added `collapse` option to limit displayed devices with expand/collapse button
+- **Feature**: Added `all_devices` option to show all battery devices (not just low battery)
+- **Enhancement**: Added divider between low and normal battery devices when using `all_devices`
+- **Enhancement**: Expand button shows count of hidden devices
+- **Improvement**: Refactored device rendering for better code organization
 
 ### v1.0.2 (2024-11-15)
 
