@@ -355,17 +355,13 @@ class BatteryDeviceCard extends HTMLElement {
         .device-list {
           display: flex;
           flex-direction: column;
+          row-gap: 8px;
         }
 
         .device-item {
           display: flex;
           align-items: center;
-          padding: 8px 0;
           cursor: pointer;
-        }
-
-        .device-item:last-child {
-          padding-bottom: 0;
         }
 
         .device-icon {
@@ -423,10 +419,6 @@ class BatteryDeviceCard extends HTMLElement {
         }
 
         @media (max-width: 600px) {
-          .device-item {
-            padding: 10px 0;
-          }
-
           .device-name {
             font-size: 0.95em;
           }
