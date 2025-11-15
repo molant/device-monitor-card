@@ -362,16 +362,10 @@ class BatteryDeviceCard extends HTMLElement {
           align-items: center;
           padding: 12px 0;
           cursor: pointer;
-          transition: background-color 0.2s;
-          border-bottom: 1px solid var(--divider-color, #e0e0e0);
         }
 
         .device-item:last-child {
-          border-bottom: none;
-        }
-
-        .device-item:hover {
-          background: var(--secondary-background-color, rgba(0, 0, 0, 0.05));
+          padding-bottom: 0;
         }
 
         .device-icon {
