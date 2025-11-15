@@ -22,7 +22,7 @@ A custom Home Assistant Lovelace card that displays low battery devices with dev
 3. Click the "+" button
 4. Search for "Battery Device Card"
 5. Click "Install"
-6. Restart Home Assistant
+6. Clear your browser cache and hard refresh (Ctrl+F5 or Cmd+Shift+R)
 
 ### Manual Installation
 
@@ -43,7 +43,9 @@ A custom Home Assistant Lovelace card that displays low battery devices with dev
        type: module
    ```
 
-4. Restart Home Assistant
+4. Clear your browser cache and hard refresh (Ctrl+F5 or Cmd+Shift+R)
+
+   **Note:** A Home Assistant restart is typically not required for adding frontend resources. If the card still doesn't appear after clearing cache, try closing all browser tabs and reopening Home Assistant.
 
 ## Configuration
 
@@ -194,10 +196,11 @@ The card automatically adapts to your Home Assistant theme.
 
 ### Card not showing up
 
-1. Verify the resource is added correctly in Settings → Dashboards → Resources
-2. Check browser console for errors (F12)
-3. Clear browser cache and refresh
-4. Restart Home Assistant
+1. Clear browser cache and do a hard refresh (Ctrl+F5 or Cmd+Shift+R)
+2. Verify the resource is added correctly in Settings → Dashboards → Resources
+3. Check browser console for errors (F12)
+4. Try closing all browser tabs and reopening Home Assistant
+5. As a last resort, restart Home Assistant (usually not needed)
 
 ### No devices showing
 
