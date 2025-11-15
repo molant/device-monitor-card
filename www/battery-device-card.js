@@ -360,7 +360,7 @@ class BatteryDeviceCard extends HTMLElement {
         .device-item {
           display: flex;
           align-items: center;
-          padding: 12px 0;
+          padding: 8px 0;
           cursor: pointer;
         }
 
@@ -394,7 +394,7 @@ class BatteryDeviceCard extends HTMLElement {
         .device-secondary {
           font-size: 0.9em;
           color: var(--secondary-text-color);
-          margin-top: 4px;
+          margin-top: 2px;
         }
 
         .battery-level {
