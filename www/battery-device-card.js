@@ -335,38 +335,43 @@ class BatteryDeviceCard extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>
         ha-card {
-          padding: 16px;
+          padding: 0;
         }
 
         .card-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding-bottom: 16px;
+          padding: 16px 16px 8px 16px;
           font-size: 1.2em;
           font-weight: 500;
           color: var(--primary-text-color);
         }
 
+        .card-content {
+          padding: 0 16px 16px 16px;
+        }
+
         .device-list {
           display: flex;
           flex-direction: column;
-          gap: 8px;
         }
 
         .device-item {
           display: flex;
           align-items: center;
-          padding: 12px;
-          background: var(--card-background-color, #fff);
-          border-radius: 8px;
+          padding: 12px 0;
           cursor: pointer;
           transition: background-color 0.2s;
-          border: 1px solid var(--divider-color, #e0e0e0);
+          border-bottom: 1px solid var(--divider-color, #e0e0e0);
+        }
+
+        .device-item:last-child {
+          border-bottom: none;
         }
 
         .device-item:hover {
-          background: var(--secondary-background-color, #f5f5f5);
+          background: var(--secondary-background-color, rgba(0, 0, 0, 0.05));
         }
 
         .device-icon {
@@ -408,7 +413,7 @@ class BatteryDeviceCard extends HTMLElement {
 
         .empty-state {
           text-align: center;
-          padding: 32px 16px;
+          padding: 32px 0;
           color: var(--secondary-text-color);
         }
 
@@ -425,7 +430,7 @@ class BatteryDeviceCard extends HTMLElement {
 
         @media (max-width: 600px) {
           .device-item {
-            padding: 10px;
+            padding: 10px 0;
           }
 
           .device-name {
