@@ -1,0 +1,27 @@
+{
+  "name": "battery-device-card",
+  "version": "1.0.0",
+  "description": "A custom Home Assistant Lovelace card that displays low battery devices with device names from the device registry",
+  "main": "www/battery-device-card.js",
+  "scripts": {
+    "test": "node --check www/battery-device-card.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/molant/battery-monitor-card.git"
+  },
+  "keywords": [
+    "homeassistant",
+    "lovelace",
+    "custom-card",
+    "battery",
+    "battery-monitor",
+    "home-assistant-card"
+  ],
+  "author": "Battery Device Card Contributors",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/molant/battery-monitor-card/issues"
+  },
+  "homepage": "https://github.com/molant/battery-monitor-card#readme"
+}

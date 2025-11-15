@@ -1,0 +1,7 @@
+{
+  "name": "Battery Device Card",
+  "render_readme": true,
+  "filename": "battery-device-card.js",
+  "content_in_root": false,
+  "homeassistant": "2023.1.0"
+}

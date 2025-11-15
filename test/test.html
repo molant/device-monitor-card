@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Battery Device Card - Test</title>
+  <style>
+    :root {
+      --primary-text-color: #212121;
+      --secondary-text-color: #727272;
+      --primary-background-color: #fafafa;
+      --secondary-background-color: #e5e5e5;
+      --card-background-color: #ffffff;
+      --divider-color: #e0e0e0;
+      --success-color: #4caf50;
+    }
+
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: 'Roboto', sans-serif;
+      background-color: var(--primary-background-color);
+    }
+
+    .container {
+      max-width: 500px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      color: var(--primary-text-color);
+      margin-bottom: 20px;
+    }
+
+    .controls {
+      background: var(--card-background-color);
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .controls label {
+      display: block;
+      margin-bottom: 10px;
+      color: var(--primary-text-color);
+      font-weight: 500;
+    }
+
+    .controls input,
+    .controls select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid var(--divider-color);
+      border-radius: 4px;
+      font-size: 14px;
+      margin-top: 5px;
+    }
+
+    .controls button {
+      background: #039be5;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+
+    .controls button:hover {
+      background: #0288d1;
+    }
+
+    battery-device-card {
+      display: block;
+    }
+
+    /* Mock ha-card element */
+    ha-card {
+      display: block;
+      background: var(--card-background-color);
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    /* Mock ha-icon element */
+    ha-icon {
+      display: inline-block;
+      width: 24px;
+      height: 24px;
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+    }
+
+    ha-icon::before {
+      content: '🔋';
+      font-size: 24px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Battery Device Card - Test</h1>
+
+    <div class="controls">
+      <label>
+        Battery Threshold:
+        <input type="number" id="threshold" value="20" min="0" max="100">
+      </label>
+      <label>
+        Card Title:
+        <input type="text" id="title" value="Low Battery">
+      </label>
+      <button onclick="updateCard()">Update Card</button>
+      <button onclick="addLowBattery()">Add Low Battery Device</button>
+      <button onclick="resetDevices()">Reset Devices</button>
+    </div>
+
+    <battery-device-card id="card"></battery-device-card>
+  </div>
+
+  <script src="../www/battery-device-card.js"></script>
+  <script>
+    // Mock ha-card custom element
+    if (!customElements.get('ha-card')) {
+      customElements.define('ha-card', class extends HTMLElement {
+        constructor() {
+          super();
+        }
+      });
+    }
+
+    // Mock ha-icon custom element
+    if (!customElements.get('ha-icon')) {
+      customElements.define('ha-icon', class extends HTMLElement {
+        static get observedAttributes() {
+          return ['icon'];
+        }
+
+        attributeChangedCallback(name, oldValue, newValue) {
+          if (name === 'icon') {
+            this.updateIcon(newValue);
+          }
+        }
+
+        updateIcon(iconName) {
+          const iconMap = {
+            'mdi:battery': '🔋',
+            'mdi:battery-90': '🔋',
+            'mdi:battery-80': '🔋',
+            'mdi:battery-70': '🔋',
+            'mdi:battery-60': '🔋',
+            'mdi:battery-50': '🔋',
+            'mdi:battery-40': '🔋',
+            'mdi:battery-30': '🔋',
+            'mdi:battery-20': '🔋',
+            'mdi:battery-10': '🪫',
+            'mdi:battery-alert': '⚠️',
+            'mdi:battery-unknown': '❓',
+            'mdi:battery-check': '✅'
+          };
+          this.textContent = iconMap[iconName] || '🔋';
+        }
+      });
+    }
+
+    // Sample device data
+    let deviceCounter = 0;
+
+    // Create mock hass object
+    function createMockHass() {
+      const now = new Date().toISOString();
+      const hourAgo = new Date(Date.now() - 3600000).toISOString();
+      const dayAgo = new Date(Date.now() - 86400000).toISOString();
+
+      return {
+        states: {
+          'sensor.phone_battery': {
+            entity_id: 'sensor.phone_battery',
+            state: '15',
+            attributes: {
+              device_class: 'battery',
+              unit_of_measurement: '%',
+              friendly_name: 'Phone Battery'
+            },
+            last_changed: hourAgo
+          },
+          'sensor.tablet_battery': {
+            entity_id: 'sensor.tablet_battery',
+            state: '8',
+            attributes: {
+              device_class: 'battery',
+              unit_of_measurement: '%',
+              friendly_name: 'Tablet Battery'
+            },
+            last_changed: dayAgo
+          },
+          'sensor.watch_battery': {
+            entity_id: 'sensor.watch_battery',
+            state: '45',
+            attributes: {
+              device_class: 'battery',
+              unit_of_measurement: '%',
+              friendly_name: 'Watch Battery'
+            },
+            last_changed: hourAgo
+          },
+          'sensor.laptop_battery': {
+            entity_id: 'sensor.laptop_battery',
+            state: '85',
+            attributes: {
+              device_class: 'battery',
+              unit_of_measurement: '%',
+              friendly_name: 'Laptop Battery'
+            },
+            last_changed: now
+          },
+          'sensor.doorbell_battery': {
+            entity_id: 'sensor.doorbell_battery',
+            state: '12',
+            attributes: {
+              device_class: 'battery',
+              unit_of_measurement: '%',
+              friendly_name: 'Doorbell Battery'
+            },
+            last_changed: new Date(Date.now() - 172800000).toISOString()
+          },
+          'sensor.motion_sensor_1_battery': {
+            entity_id: 'sensor.motion_sensor_1_battery',
+            state: '18',
+            attributes: {
+              device_class: 'battery',
+              unit_of_measurement: '%',
+              friendly_name: 'Motion Sensor 1 Battery'
+            },
+            last_changed: hourAgo
+          },
+          'binary_sensor.smoke_detector_battery_low': {
+            entity_id: 'binary_sensor.smoke_detector_battery_low',
+            state: 'on',
+            attributes: {
+              device_class: 'battery',
+              friendly_name: 'Smoke Detector Battery Low'
+            },
+            last_changed: new Date(Date.now() - 259200000).toISOString()
+          }
+        },
+        entities: {
+          'sensor.phone_battery': { device_id: 'device_phone' },
+          'sensor.tablet_battery': { device_id: 'device_tablet' },
+          'sensor.watch_battery': { device_id: 'device_watch' },
+          'sensor.laptop_battery': { device_id: 'device_laptop' },
+          'sensor.doorbell_battery': { device_id: 'device_doorbell' },
+          'sensor.motion_sensor_1_battery': { device_id: 'device_motion_1' },
+          'binary_sensor.smoke_detector_battery_low': { device_id: 'device_smoke_detector' }
+        },
+        devices: {
+          'device_phone': {
+            id: 'device_phone',
+            name: 'Samsung Galaxy S21',
+            name_by_user: null
+          },
+          'device_tablet': {
+            id: 'device_tablet',
+            name: 'iPad Pro',
+            name_by_user: 'Living Room Tablet'
+          },
+          'device_watch': {
+            id: 'device_watch',
+            name: 'Apple Watch',
+            name_by_user: null
+          },
+          'device_laptop': {
+            id: 'device_laptop',
+            name: 'MacBook Pro',
+            name_by_user: null
+          },
+          'device_doorbell': {
+            id: 'device_doorbell',
+            name: 'Ring Doorbell',
+            name_by_user: 'Front Door Bell'
+          },
+          'device_motion_1': {
+            id: 'device_motion_1',
+            name: 'Motion Sensor',
+            name_by_user: 'Hallway Motion Sensor'
+          },
+          'device_smoke_detector': {
+            id: 'device_smoke_detector',
+            name: 'Smoke Detector',
+            name_by_user: 'Kitchen Smoke Detector'
+          }
+        }
+      };
+    }
+
+    // Initialize card
+    let mockHass = createMockHass();
+    const card = document.getElementById('card');
+
+    function updateCard() {
+      const threshold = document.getElementById('threshold').value;
+      const title = document.getElementById('title').value;
+
+      card.setConfig({
+        battery_threshold: parseInt(threshold),
+        title: title
+      });
+
+      card.hass = mockHass;
+    }
+
+    function addLowBattery() {
+      deviceCounter++;
+      const entityId = `sensor.device_${deviceCounter}_battery`;
+      const deviceId = `device_${deviceCounter}`;
+      const batteryLevel = Math.floor(Math.random() * 15) + 5; // 5-19%
+
+      mockHass.states[entityId] = {
+        entity_id: entityId,
+        state: batteryLevel.toString(),
+        attributes: {
+          device_class: 'battery',
+          unit_of_measurement: '%',
+          friendly_name: `Device ${deviceCounter} Battery`
+        },
+        last_changed: new Date().toISOString()
+      };
+
+      mockHass.entities[entityId] = { device_id: deviceId };
+
+      mockHass.devices[deviceId] = {
+        id: deviceId,
+        name: `Test Device ${deviceCounter}`,
+        name_by_user: null
+      };
+
+      updateCard();
+    }
+
+    function resetDevices() {
+      mockHass = createMockHass();
+      deviceCounter = 0;
+      updateCard();
+    }
+
+    // Initial setup
+    updateCard();
+
+    // Mock navigation for device clicks
+    window.addEventListener('location-changed', (e) => {
+      console.log('Navigation event triggered:', window.location.pathname);
+      alert('In a real Home Assistant environment, this would open the device page at: ' + window.location.pathname);
+      // Restore original URL
+      history.back();
+    });
+
+    console.log('Test page loaded successfully!');
+    console.log('Mock hass object:', mockHass);
+  </script>
+</body>
+</html>
