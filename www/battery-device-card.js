@@ -3,7 +3,7 @@
  * A custom Home Assistant Lovelace card that displays low battery devices
  * with device names from the device registry.
  *
- * @version 1.0.1
+ * @version 1.0.2
  * @author Custom Card
  * @license MIT
  */
@@ -78,6 +78,14 @@ class BatteryDeviceCard extends HTMLElement {
         entityId.includes('_battery_low') &&
         entityId.startsWith('binary_sensor.');
 
+      // Skip non-level battery entities (state, charging status, etc.)
+      const excludedSuffixes = ['_state', '_charging', '_charger', '_power', '_health'];
+      const isExcludedEntity = excludedSuffixes.some(suffix => entityId.endsWith(suffix));
+
+      if (isExcludedEntity) {
+        return;
+      }
+
       // Check if this is a battery sensor - be strict to avoid false positives
       const isBatterySensor =
         attributes.device_class === 'battery' ||
@@ -138,8 +146,16 @@ class BatteryDeviceCard extends HTMLElement {
         }
       }
 
-      // Store device info
-      if (!devices[deviceId]) {
+      // Store or update device info
+      // Prefer entities with numeric battery levels over non-numeric
+      const existingDevice = devices[deviceId];
+      const shouldUpdate = !existingDevice ||
+        (typeof batteryLevel === 'number' && typeof existingDevice.batteryLevel !== 'number') ||
+        (attributes.device_class === 'battery' && existingDevice.attributes?.device_class !== 'battery');
+
+      if (shouldUpdate) {
+        const action = existingDevice ? 'Updated' : 'Added';
+
         devices[deviceId] = {
           deviceId,
           deviceName,
@@ -151,16 +167,23 @@ class BatteryDeviceCard extends HTMLElement {
           attributes
         };
 
-        // Debug logging for added devices
+        // Debug logging for added/updated devices
         if (this._config.debug) {
-          console.log('[Battery Card] Added device:', {
+          console.log(`[Battery Card] ${action} device:`, {
             deviceName,
             entityId,
             batteryLevel,
             isLow,
-            threshold
+            threshold,
+            replacedEntity: existingDevice?.entityId
           });
         }
+      } else if (this._config.debug) {
+        console.log('[Battery Card] Skipped entity (already have better):', {
+          deviceName,
+          entityId,
+          existingEntity: existingDevice.entityId
+        });
       }
     });
 
@@ -494,7 +517,7 @@ window.customCards.push({
 });
 
 console.info(
-  '%c BATTERY-DEVICE-CARD %c 1.0.1 ',
+  '%c BATTERY-DEVICE-CARD %c 1.0.2 ',
   'color: white; background: #039be5; font-weight: 700;',
   'color: #039be5; background: white; font-weight: 700;'
 );

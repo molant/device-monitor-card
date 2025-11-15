@@ -331,6 +331,14 @@ MIT License - see LICENSE file for details
 
 ## Changelog
 
+### v1.0.2 (2024-11-15)
+
+- **Bug Fix**: Fixed device detection picking up wrong entities (e.g., `battery_state` instead of `battery` level)
+- **Improvement**: Added exclusion filter for non-level battery entities (`_state`, `_charging`, `_charger`, `_power`, `_health`)
+- **Improvement**: Smart entity prioritization - prefers numeric battery levels over non-numeric states
+- **Improvement**: Prefers entities with `device_class: battery` when multiple battery entities exist for same device
+- **Enhancement**: Debug logging now shows when entities are skipped or replaced
+
 ### v1.0.1 (2024-11-15)
 
 - **Bug Fix**: Fixed overly broad battery detection that was catching CPU utilization and other percentage-based sensors
