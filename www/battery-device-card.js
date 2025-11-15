@@ -3,7 +3,7 @@
  * A custom Home Assistant Lovelace card that displays low battery devices
  * with device names from the device registry.
  *
- * @version 1.0.0
+ * @version 1.0.1
  * @author Custom Card
  * @license MIT
  */
@@ -72,19 +72,33 @@ class BatteryDeviceCard extends HTMLElement {
       const entity = entities[entityId];
       const attributes = entity.attributes || {};
 
-      // Check if this is a battery sensor
-      const isBatterySensor =
-        attributes.device_class === 'battery' ||
-        entityId.includes('battery') ||
-        attributes.unit_of_measurement === '%';
-
       // Check if this is a battery_low binary sensor
       const isBatteryLowSensor =
         entityId.includes('_battery_low') &&
         entityId.startsWith('binary_sensor.');
 
+      // Check if this is a battery sensor - be strict to avoid false positives
+      const isBatterySensor =
+        attributes.device_class === 'battery' ||
+        (entityId.includes('battery') &&
+         (entityId.startsWith('sensor.') || entityId.startsWith('binary_sensor.')) &&
+         attributes.device_class !== 'power' &&
+         attributes.device_class !== 'energy');
+
       if (!isBatterySensor && !isBatteryLowSensor) {
         return;
+      }
+
+      // Debug logging - can be disabled by setting window.batteryCardDebug = false
+      if (window.batteryCardDebug !== false) {
+        console.debug('[Battery Card] Found potential battery entity:', {
+          entityId,
+          device_class: attributes.device_class,
+          state: entity.state,
+          unit: attributes.unit_of_measurement,
+          isBatterySensor,
+          isBatteryLowSensor
+        });
       }
 
       // Skip if there's a corresponding battery_low binary sensor
@@ -135,11 +149,37 @@ class BatteryDeviceCard extends HTMLElement {
           state: entity.state,
           attributes
         };
+
+        // Debug logging for added devices
+        if (window.batteryCardDebug !== false) {
+          console.debug('[Battery Card] Added device:', {
+            deviceName,
+            entityId,
+            batteryLevel,
+            isLow,
+            threshold
+          });
+        }
       }
     });
 
     const allDevices = Object.values(devices);
     const lowBatteryDevices = allDevices.filter(d => d.isLow);
+
+    // Summary debug logging
+    if (window.batteryCardDebug !== false) {
+      console.debug('[Battery Card] Summary:', {
+        totalBatteryDevices: allDevices.length,
+        lowBatteryDevices: lowBatteryDevices.length,
+        threshold,
+        devices: allDevices.map(d => ({
+          name: d.deviceName,
+          entity: d.entityId,
+          level: d.batteryLevel,
+          isLow: d.isLow
+        }))
+      });
+    }
 
     return {
       lowBatteryDevices: lowBatteryDevices.sort((a, b) => {
@@ -452,7 +492,7 @@ window.customCards.push({
 });
 
 console.info(
-  '%c BATTERY-DEVICE-CARD %c 1.0.0 ',
+  '%c BATTERY-DEVICE-CARD %c 1.0.1 ',
   'color: white; background: #039be5; font-weight: 700;',
   'color: #039be5; background: white; font-weight: 700;'
 );

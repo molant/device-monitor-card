@@ -225,6 +225,75 @@ It may not work in:
 - Test HTML file (shows alert instead)
 - External iframes
 
+## Debugging
+
+The card includes built-in debug logging to help troubleshoot issues with entity detection.
+
+### Enabling Debug Logging
+
+Open your browser's developer console (F12) and enter:
+
+```javascript
+window.batteryCardDebug = true
+```
+
+Then refresh the page. You'll see detailed logs showing:
+- Every battery entity found
+- Device class, state, and unit of measurement for each entity
+- Which devices were added to the tracking list
+- A summary of all battery devices and their status
+
+### Understanding Debug Output
+
+The debug logs will show entries like:
+
+```
+[Battery Card] Found potential battery entity: {
+  entityId: "sensor.phone_battery",
+  device_class: "battery",
+  state: "45",
+  unit: "%",
+  isBatterySensor: true,
+  isBatteryLowSensor: false
+}
+
+[Battery Card] Added device: {
+  deviceName: "Samsung Galaxy S21",
+  entityId: "sensor.phone_battery",
+  batteryLevel: 45,
+  isLow: false,
+  threshold: 20
+}
+
+[Battery Card] Summary: {
+  totalBatteryDevices: 5,
+  lowBatteryDevices: 2,
+  threshold: 20,
+  devices: [...]
+}
+```
+
+### Disabling Debug Logging
+
+To disable debug output:
+
+```javascript
+window.batteryCardDebug = false
+```
+
+Then refresh the page.
+
+### Common Issues Revealed by Debug Logs
+
+**Non-battery entities being detected**: If you see entities without `device_class: "battery"` being detected, check if they have "battery" in their entity ID. The card only tracks entities that either:
+1. Have `device_class: "battery"`, OR
+2. Have "battery" in the entity ID AND are sensor/binary_sensor domain
+
+**Devices not showing up**: Check the debug logs to see if:
+- The entity is being found but filtered out (e.g., has a corresponding battery_low sensor)
+- The entity doesn't have a device_id
+- The device doesn't have a name in the registry
+
 ## Development
 
 ### Project Structure
@@ -257,6 +326,12 @@ Contributions are welcome! Please:
 MIT License - see LICENSE file for details
 
 ## Changelog
+
+### v1.0.1 (2024-11-15)
+
+- **Bug Fix**: Fixed overly broad battery detection that was catching CPU utilization and other percentage-based sensors
+- **Improvement**: Made battery sensor detection more strict - now requires either `device_class: battery` or entity ID containing "battery" (for sensor/binary_sensor domains only)
+- **Feature**: Added debug logging to help troubleshoot entity detection (see Debugging section)
 
 ### v1.0.0 (2024-11-15)
 
