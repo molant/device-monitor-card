@@ -366,6 +366,12 @@ MIT License - see LICENSE file for details
 
 ## Changelog
 
+### v1.1.1 (2024-11-15)
+
+- **Bug Fix**: Fixed battery icon display for `binary_sensor.*_battery_low` entities
+- **Improvement**: Binary sensor "Low" state now shows red battery-alert icon (instead of yellow unknown)
+- **Improvement**: Binary sensor "OK" state now shows blue full battery icon (instead of yellow unknown)
+
 ### v1.1.0 (2024-11-15)
 
 - **Feature**: Added `collapse` option to limit displayed devices with expand/collapse button

@@ -3,7 +3,7 @@
  * A custom Home Assistant Lovelace card that displays low battery devices
  * with device names from the device registry.
  *
- * @version 1.1.0
+ * @version 1.1.1
  * @author Custom Card
  * @license MIT
  */
@@ -261,10 +261,20 @@ class BatteryDeviceCard extends HTMLElement {
    * Get battery icon based on level
    */
   _getBatteryIcon(batteryLevel) {
+    // Handle binary sensor battery_low states
+    if (batteryLevel === 'Low') {
+      return 'mdi:battery-alert';
+    }
+    if (batteryLevel === 'OK') {
+      return 'mdi:battery';
+    }
+
+    // Handle non-numeric unknown states
     if (typeof batteryLevel !== 'number') {
       return 'mdi:battery-unknown';
     }
 
+    // Handle numeric battery levels
     if (batteryLevel >= 95) return 'mdi:battery';
     if (batteryLevel >= 85) return 'mdi:battery-90';
     if (batteryLevel >= 75) return 'mdi:battery-80';
@@ -282,10 +292,20 @@ class BatteryDeviceCard extends HTMLElement {
    * Get battery icon color based on level
    */
   _getBatteryColor(batteryLevel) {
+    // Handle binary sensor battery_low states
+    if (batteryLevel === 'Low') {
+      return '#ff0000'; // red for low battery
+    }
+    if (batteryLevel === 'OK') {
+      return '#44739e'; // blue for OK battery
+    }
+
+    // Handle non-numeric unknown states
     if (typeof batteryLevel !== 'number') {
       return '#ffa500'; // orange for unknown
     }
 
+    // Handle numeric battery levels
     if (batteryLevel < 10) return '#ff0000'; // red
     if (batteryLevel < 20) return '#ffa500'; // orange
     return '#44739e'; // default blue
@@ -605,7 +625,7 @@ window.customCards.push({
 });
 
 console.info(
-  '%c BATTERY-DEVICE-CARD %c 1.1.0 ',
+  '%c BATTERY-DEVICE-CARD %c 1.1.1 ',
   'color: white; background: #039be5; font-weight: 700;',
   'color: #039be5; background: white; font-weight: 700;'
 );
