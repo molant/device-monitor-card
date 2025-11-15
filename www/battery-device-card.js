@@ -3,7 +3,7 @@
  * A custom Home Assistant Lovelace card that displays low battery devices
  * with device names from the device registry.
  *
- * @version 1.1.1
+ * @version 1.2.0
  * @author Custom Card
  * @license MIT
  */
@@ -611,8 +611,187 @@ class BatteryDeviceCard extends HTMLElement {
   }
 }
 
+/**
+ * Card Editor
+ */
+class BatteryDeviceCardEditor extends HTMLElement {
+  setConfig(config) {
+    this._config = { ...config };
+    this.render();
+  }
+
+  configChanged(newConfig) {
+    const event = new Event('config-changed', {
+      bubbles: true,
+      composed: true,
+    });
+    event.detail = { config: newConfig };
+    this.dispatchEvent(event);
+  }
+
+  valueChanged(ev) {
+    if (!this._config) {
+      return;
+    }
+
+    const target = ev.target;
+    const configValue = target.configValue;
+    let value = target.value;
+
+    if (target.type === 'checkbox') {
+      value = target.checked;
+    } else if (target.type === 'number') {
+      value = value === '' ? undefined : Number(value);
+    }
+
+    if (this._config[configValue] === value) {
+      return;
+    }
+
+    const newConfig = { ...this._config };
+    if (value === undefined || value === '') {
+      delete newConfig[configValue];
+    } else {
+      newConfig[configValue] = value;
+    }
+
+    this.configChanged(newConfig);
+  }
+
+  render() {
+    if (!this._config) {
+      return;
+    }
+
+    this.innerHTML = `
+      <style>
+        .option {
+          padding: 12px 0;
+          display: flex;
+          align-items: center;
+        }
+
+        .option:not(:last-child) {
+          border-bottom: 1px solid var(--divider-color);
+        }
+
+        .option label {
+          flex: 1;
+          font-weight: 500;
+          color: var(--primary-text-color);
+        }
+
+        .option .description {
+          font-size: 0.9em;
+          color: var(--secondary-text-color);
+          margin-top: 4px;
+        }
+
+        .option input[type="text"],
+        .option input[type="number"] {
+          width: 100px;
+          padding: 8px;
+          border: 1px solid var(--divider-color);
+          border-radius: 4px;
+          background: var(--card-background-color);
+          color: var(--primary-text-color);
+          font-size: 14px;
+        }
+
+        .option input[type="checkbox"] {
+          width: 24px;
+          height: 24px;
+          cursor: pointer;
+        }
+
+        .label-container {
+          flex: 1;
+        }
+      </style>
+
+      <div class="card-config">
+        <div class="option">
+          <div class="label-container">
+            <label>Title</label>
+            <div class="description">Card title text</div>
+          </div>
+          <input
+            type="text"
+            .value="${this._config.title || 'Low Battery'}"
+            .configValue="${'title'}"
+            @input="${this.valueChanged}"
+          />
+        </div>
+
+        <div class="option">
+          <div class="label-container">
+            <label>Battery Threshold</label>
+            <div class="description">Low battery percentage threshold</div>
+          </div>
+          <input
+            type="number"
+            min="0"
+            max="100"
+            .value="${this._config.battery_threshold || 20}"
+            .configValue="${'battery_threshold'}"
+            @input="${this.valueChanged}"
+          />
+        </div>
+
+        <div class="option">
+          <div class="label-container">
+            <label>Collapse</label>
+            <div class="description">Limit displayed devices (leave empty for no limit)</div>
+          </div>
+          <input
+            type="number"
+            min="1"
+            .value="${this._config.collapse || ''}"
+            .configValue="${'collapse'}"
+            @input="${this.valueChanged}"
+            placeholder="No limit"
+          />
+        </div>
+
+        <div class="option">
+          <div class="label-container">
+            <label>Show All Devices</label>
+            <div class="description">Show all battery devices, not just low battery</div>
+          </div>
+          <input
+            type="checkbox"
+            .checked="${this._config.all_devices || false}"
+            .configValue="${'all_devices'}"
+            @change="${this.valueChanged}"
+          />
+        </div>
+
+        <div class="option">
+          <div class="label-container">
+            <label>Debug Mode</label>
+            <div class="description">Enable debug logging in browser console</div>
+          </div>
+          <input
+            type="checkbox"
+            .checked="${this._config.debug || false}"
+            .configValue="${'debug'}"
+            @change="${this.valueChanged}"
+          />
+        </div>
+      </div>
+    `;
+
+    // Add event listeners
+    this.querySelectorAll('input').forEach(input => {
+      const eventType = input.type === 'checkbox' ? 'change' : 'input';
+      input.addEventListener(eventType, (ev) => this.valueChanged(ev));
+    });
+  }
+}
+
 // Register the custom card
 customElements.define('battery-device-card', BatteryDeviceCard);
+customElements.define('battery-device-card-editor', BatteryDeviceCardEditor);
 
 // Register card with Home Assistant
 window.customCards = window.customCards || [];
@@ -625,7 +804,7 @@ window.customCards.push({
 });
 
 console.info(
-  '%c BATTERY-DEVICE-CARD %c 1.1.1 ',
+  '%c BATTERY-DEVICE-CARD %c 1.2.0 ',
   'color: white; background: #039be5; font-weight: 700;',
   'color: #039be5; background: white; font-weight: 700;'
 );

@@ -366,6 +366,13 @@ MIT License - see LICENSE file for details
 
 ## Changelog
 
+### v1.2.0 (2024-11-15)
+
+- **Feature**: Added visual card editor for easy configuration in Home Assistant UI
+- **Enhancement**: Config tab now shows form fields for all options (title, threshold, collapse, all_devices, debug)
+- **Improvement**: No longer need to use "Show code editor" - visual editor available by default
+- **UX**: Each option includes helpful descriptions
+
 ### v1.1.1 (2024-11-15)
 
 - **Bug Fix**: Fixed battery icon display for `binary_sensor.*_battery_low` entities
