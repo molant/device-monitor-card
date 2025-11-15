@@ -61,6 +61,7 @@ type: custom:battery-device-card
 type: custom:battery-device-card
 battery_threshold: 20      # Optional, default: 20
 title: "Low Battery"       # Optional, default: "Low Battery"
+debug: true                # Optional, default: false - enables debug logging
 ```
 
 ### Configuration Options
@@ -69,6 +70,7 @@ title: "Low Battery"       # Optional, default: "Low Battery"
 |--------|------|---------|-------------|
 | `battery_threshold` | number | 20 | Battery percentage threshold for low battery alerts |
 | `title` | string | "Low Battery" | Card title |
+| `debug` | boolean | false | Enable debug logging in browser console |
 
 ## How It Works
 
@@ -231,13 +233,14 @@ The card includes built-in debug logging to help troubleshoot issues with entity
 
 ### Enabling Debug Logging
 
-Open your browser's developer console (F12) and enter:
+Add `debug: true` to your card configuration:
 
-```javascript
-window.batteryCardDebug = true
+```yaml
+type: custom:battery-device-card
+debug: true
 ```
 
-Then refresh the page. You'll see detailed logs showing:
+Then refresh your browser. Open the developer console (F12) and you'll see detailed logs showing:
 - Every battery entity found
 - Device class, state, and unit of measurement for each entity
 - Which devices were added to the tracking list
@@ -275,13 +278,14 @@ The debug logs will show entries like:
 
 ### Disabling Debug Logging
 
-To disable debug output:
+To disable debug output, remove `debug: true` from your card configuration or set it to `false`:
 
-```javascript
-window.batteryCardDebug = false
+```yaml
+type: custom:battery-device-card
+debug: false
 ```
 
-Then refresh the page.
+Then refresh your browser.
 
 ### Common Issues Revealed by Debug Logs
 

@@ -26,6 +26,7 @@ class BatteryDeviceCard extends HTMLElement {
     this._config = {
       battery_threshold: config.battery_threshold || 20,
       title: config.title || 'Low Battery',
+      debug: config.debug || false,
       ...config
     };
 
@@ -89,9 +90,9 @@ class BatteryDeviceCard extends HTMLElement {
         return;
       }
 
-      // Debug logging - can be disabled by setting window.batteryCardDebug = false
-      if (window.batteryCardDebug !== false) {
-        console.debug('[Battery Card] Found potential battery entity:', {
+      // Debug logging
+      if (this._config.debug) {
+        console.log('[Battery Card] Found potential battery entity:', {
           entityId,
           device_class: attributes.device_class,
           state: entity.state,
@@ -151,8 +152,8 @@ class BatteryDeviceCard extends HTMLElement {
         };
 
         // Debug logging for added devices
-        if (window.batteryCardDebug !== false) {
-          console.debug('[Battery Card] Added device:', {
+        if (this._config.debug) {
+          console.log('[Battery Card] Added device:', {
             deviceName,
             entityId,
             batteryLevel,
@@ -167,8 +168,8 @@ class BatteryDeviceCard extends HTMLElement {
     const lowBatteryDevices = allDevices.filter(d => d.isLow);
 
     // Summary debug logging
-    if (window.batteryCardDebug !== false) {
-      console.debug('[Battery Card] Summary:', {
+    if (this._config.debug) {
+      console.log('[Battery Card] Summary:', {
         totalBatteryDevices: allDevices.length,
         lowBatteryDevices: lowBatteryDevices.length,
         threshold,
@@ -466,7 +467,8 @@ class BatteryDeviceCard extends HTMLElement {
   static getStubConfig() {
     return {
       battery_threshold: 20,
-      title: 'Low Battery'
+      title: 'Low Battery',
+      debug: false
     };
   }
 
