@@ -617,7 +617,12 @@ class BatteryDeviceCard extends HTMLElement {
 class BatteryDeviceCardEditor extends HTMLElement {
   setConfig(config) {
     this._config = { ...config };
-    this.render();
+
+    // Only render if not already rendered
+    if (!this._rendered) {
+      this.render();
+      this._rendered = true;
+    }
   }
 
   configChanged(newConfig) {
@@ -628,7 +633,7 @@ class BatteryDeviceCardEditor extends HTMLElement {
     event.detail = { config: newConfig };
     this.dispatchEvent(event);
 
-    // Update internal config to reflect changes
+    // Update internal config without re-rendering
     this._config = newConfig;
   }
 
