@@ -224,6 +224,7 @@ class BatteryDeviceCard extends HTMLElement {
       collapse: config.collapse,
       group_by: config.group_by || null,
       sort_by: config.sort_by || 'state',
+      show_toggle: config.show_toggle || false,
       ...config
     };
 
@@ -538,6 +539,20 @@ class BatteryDeviceCard extends HTMLElement {
   }
 
   /**
+   * Toggle light state
+   */
+  _toggleLight(entityId, currentState) {
+    if (!this._hass) return;
+
+    const service = currentState === 'on' ? 'turn_off' : 'turn_on';
+    this._hass.callService('light', service, { entity_id: entityId });
+
+    if (this._config.debug) {
+      console.log(`[Device Monitor] Toggling light ${entityId} to ${service === 'turn_on' ? 'on' : 'off'}`);
+    }
+  }
+
+  /**
    * Format last changed time
    */
   _formatLastChanged(lastChanged) {
@@ -564,9 +579,12 @@ class BatteryDeviceCard extends HTMLElement {
   _renderDevice(device) {
     const strategy = ENTITY_TYPES[this._config.entity_type];
     const stateInfo = { ...device.stateInfo, attributes: device.attributes };
+    const isLight = this._config.entity_type === 'light';
+    const showToggle = this._config.show_toggle && isLight;
+    const isOn = device.stateInfo.value === 'on';
 
     return `
-      <div class="device-item" data-device-id="${device.deviceId}">
+      <div class="device-item" data-device-id="${device.deviceId}" data-entity-id="${device.entityId}">
         <div class="device-icon">
           <ha-icon
             icon="${strategy.getIcon(stateInfo)}"
@@ -579,9 +597,18 @@ class BatteryDeviceCard extends HTMLElement {
             Last changed: ${this._formatLastChanged(device.lastChanged)}
           </div>
         </div>
-        <div class="state-value">
-          ${device.stateInfo.displayValue}
-        </div>
+        ${showToggle ? `
+          <div class="toggle-container">
+            <label class="toggle-switch">
+              <input type="checkbox" class="toggle-input" ${isOn ? 'checked' : ''} data-entity-id="${device.entityId}">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        ` : `
+          <div class="state-value">
+            ${device.stateInfo.displayValue}
+          </div>
+        `}
       </div>
     `;
   }
@@ -721,6 +748,60 @@ class BatteryDeviceCard extends HTMLElement {
           color: var(--primary-text-color);
         }
 
+        .toggle-container {
+          margin-left: 12px;
+          flex-shrink: 0;
+        }
+
+        .toggle-switch {
+          position: relative;
+          display: inline-block;
+          width: 44px;
+          height: 24px;
+        }
+
+        .toggle-switch input {
+          opacity: 0;
+          width: 0;
+          height: 0;
+        }
+
+        .toggle-slider {
+          position: absolute;
+          cursor: pointer;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: var(--divider-color, #ccc);
+          transition: .3s;
+          border-radius: 24px;
+        }
+
+        .toggle-slider:before {
+          position: absolute;
+          content: "";
+          height: 18px;
+          width: 18px;
+          left: 3px;
+          bottom: 3px;
+          background-color: white;
+          transition: .3s;
+          border-radius: 50%;
+        }
+
+        .toggle-input:checked + .toggle-slider {
+          background-color: var(--primary-color, #03a9f4);
+        }
+
+        .toggle-input:checked + .toggle-slider:before {
+          transform: translateX(20px);
+        }
+
+        .toggle-switch:hover .toggle-slider {
+          opacity: 0.8;
+        }
+
         .divider {
           height: 1px;
           background: var(--divider-color, #e0e0e0);
@@ -820,9 +901,23 @@ class BatteryDeviceCard extends HTMLElement {
 
     // Add click handlers for device items
     this.shadowRoot.querySelectorAll('.device-item').forEach(item => {
-      item.addEventListener('click', () => {
+      item.addEventListener('click', (e) => {
+        // Don't navigate if clicking on toggle
+        if (e.target.closest('.toggle-switch')) {
+          return;
+        }
         const deviceId = item.getAttribute('data-device-id');
         this._openDevice(deviceId);
+      });
+    });
+
+    // Add change handlers for toggle switches
+    this.shadowRoot.querySelectorAll('.toggle-input').forEach(toggle => {
+      toggle.addEventListener('change', (e) => {
+        e.stopPropagation();
+        const entityId = toggle.getAttribute('data-entity-id');
+        const currentState = toggle.checked ? 'off' : 'on'; // Inverted because checkbox already changed
+        this._toggleLight(entityId, currentState);
       });
     });
 
@@ -845,7 +940,8 @@ class BatteryDeviceCard extends HTMLElement {
       debug: false,
       collapse: undefined,
       group_by: null,
-      sort_by: 'state'
+      sort_by: 'state',
+      show_toggle: false
     };
   }
 
@@ -910,6 +1006,7 @@ class BatteryDeviceCardEditor extends HTMLElement {
 
     const entityType = this._config.entity_type || 'battery';
     const showBatteryThreshold = entityType === 'battery';
+    const showToggleOption = entityType === 'light';
 
     this.innerHTML = `
       <style>
@@ -1051,6 +1148,18 @@ class BatteryDeviceCardEditor extends HTMLElement {
           />
         </div>
 
+        <div class="option ${showToggleOption ? '' : 'hidden'}" id="show_toggle_option">
+          <div class="label-container">
+            <label>Show Toggle</label>
+            <div class="description">Show toggle switch to turn lights on/off</div>
+          </div>
+          <input
+            id="show_toggle"
+            type="checkbox"
+            ${this._config.show_toggle ? 'checked' : ''}
+          />
+        </div>
+
         <div class="option">
           <div class="label-container">
             <label>Debug Mode</label>
@@ -1088,6 +1197,7 @@ class BatteryDeviceCardEditor extends HTMLElement {
     const groupByInput = this.querySelector('#group_by');
     const sortByInput = this.querySelector('#sort_by');
     const collapseInput = this.querySelector('#collapse');
+    const showToggleInput = this.querySelector('#show_toggle');
     const debugInput = this.querySelector('#debug');
 
     // Text and number inputs - debounced to prevent focus loss
@@ -1125,6 +1235,12 @@ class BatteryDeviceCardEditor extends HTMLElement {
     sortByInput.onchange = updateConfig((config, target) => {
       config.sort_by = target.value;
     }, false);
+
+    if (showToggleInput) {
+      showToggleInput.onchange = updateConfig((config, target) => {
+        config.show_toggle = target.checked;
+      }, false);
+    }
 
     debugInput.onchange = updateConfig((config, target) => {
       config.debug = target.checked;
