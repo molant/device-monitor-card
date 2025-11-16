@@ -105,13 +105,17 @@ When `binary_sensor.*_battery_low` exists, exclude corresponding `sensor.*_batte
 
 ```
 battery-monitor-card/
+├── dist/
+│   └── battery-monitor-card.js   # HACS distribution file (matches repo name)
 ├── www/
-│   └── device-monitor-card.js    # Main implementation (Web Component)
+│   └── device-monitor-card.js    # Development source file
 ├── README.md                     # User documentation
 ├── package.json                  # npm metadata
 ├── hacs.json                     # HACS integration config
 └── claude.md                     # This file
 ```
+
+**Note:** The filename in `dist/` matches the repository name (`battery-monitor-card.js`) as required by HACS, while the custom element name remains `device-monitor-card` as defined in the JavaScript.
 
 ## Configuration Options
 
@@ -211,10 +215,45 @@ See README Roadmap section for community-requested features:
 - Custom thresholds per device
 - Badge mode for compact display
 
+## HACS Publishing
+
+### Requirements for HACS Default Repository
+
+To be included in HACS as a default repository:
+
+1. **File Structure**: Plugin file must be in `dist/` directory or repository root
+2. **File Naming**: Must match repository name (`battery-monitor-card.js`)
+3. **GitHub Releases**: At least one release required (v1.0.0+)
+4. **Repository Topics**: Add topics like `hacs`, `home-assistant`, `lovelace-card`
+5. **Description**: Clear GitHub repository description
+6. **README**: Comprehensive documentation
+7. **hacs.json**: Manifest file with correct filename reference
+
+### Submission Process
+
+1. Ensure all requirements are met
+2. Create GitHub release (v1.0.0)
+3. Add repository topics on GitHub
+4. Submit PR to [hacs/default](https://github.com/hacs/default) repository
+5. Wait for automated validation checks to pass
+
+### Custom Repository Installation
+
+Users can add this repository manually in HACS before it becomes a default:
+- Go to HACS → Integrations → ⋮ → Custom repositories
+- Add URL: `https://github.com/molant/battery-monitor-card`
+- Category: Plugin
+
 ## Development Notes
 
 ### No Build Process
 Pure JavaScript implementation - no compilation, bundling, or transpilation needed.
+
+### File Synchronization
+When making changes:
+1. Edit `www/device-monitor-card.js` (development source)
+2. Copy to `dist/battery-monitor-card.js` before committing
+3. Both files should have identical content
 
 ### Browser Compatibility
 Fully supported in all modern browsers (Chrome, Firefox, Safari, Edge) and mobile browsers.

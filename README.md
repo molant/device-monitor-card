@@ -51,20 +51,20 @@ A versatile Home Assistant Lovelace card that monitors multiple types of devices
 
 ### Manual Installation
 
-1. Download `device-monitor-card.js` from this repository
+1. Download `battery-monitor-card.js` from the `dist/` directory in this repository
 2. Copy it to your `config/www/` directory in Home Assistant
 3. Add the following to your Lovelace resources:
 
    **Via UI:**
    - Go to Settings → Dashboards → Resources
    - Click "Add Resource"
-   - URL: `/local/device-monitor-card.js`
+   - URL: `/local/battery-monitor-card.js`
    - Resource type: `JavaScript Module`
 
    **Via YAML:**
    ```yaml
    resources:
-     - url: /local/device-monitor-card.js
+     - url: /local/battery-monitor-card.js
        type: module
    ```
 
@@ -410,9 +410,11 @@ Then refresh your browser and open the developer console (F12). You'll see detai
 ### Project Structure
 
 ```
-battery-device-card/
+battery-monitor-card/
+├── dist/
+│   └── battery-monitor-card.js  # HACS distribution file
 ├── www/
-│   └── device-monitor-card.js   # Main card implementation
+│   └── device-monitor-card.js   # Development source file
 ├── README.md                    # Documentation
 ├── claude.md                    # Project context for Claude Code
 ├── package.json                 # npm metadata
