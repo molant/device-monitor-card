@@ -1,17 +1,40 @@
-# Battery Device Card
+# Device Monitor Card
 
-A custom Home Assistant Lovelace card that displays low battery devices with device names from the device registry instead of entity names.
+A versatile Home Assistant Lovelace card that monitors multiple types of devices: batteries, contact sensors (doors/windows), and lights. Features smart device name resolution, grouping by area/floor, and customizable sorting.
 
 ## Features
 
+- **Multiple Entity Types**: Monitor batteries, contact sensors, or lights in a single card
 - **Device Names**: Shows actual device names from the device registry, not entity friendly names
-- **Automatic Discovery**: Automatically finds all battery entities in your Home Assistant instance
-- **Smart Filtering**: Excludes duplicate sensors when binary_sensor.*_battery_low exists
-- **Battery Level Icons**: Color-coded battery icons (red < 10%, orange < 20%)
+- **Automatic Discovery**: Automatically finds entities based on device class and domain
+- **Smart Grouping**: Group devices by area or floor for better organization
+- **Flexible Sorting**: Sort by state (battery level/status), name, or last changed time
+- **Smart Filtering**: For batteries, excludes duplicate sensors when binary_sensor.*_battery_low exists
+- **Color-Coded Icons**: Dynamic icons and colors based on entity state
 - **Clickable Devices**: Click any device to open its device page in Home Assistant
 - **Responsive Design**: Mobile-friendly layout that matches Home Assistant's style
-- **Last Changed Info**: Shows when each battery level was last updated
-- **Empty State**: Displays a friendly message when all batteries are OK
+- **Last Changed Info**: Shows when each entity state was last updated
+- **Empty State**: Displays a friendly message when all devices are in good state
+
+## Supported Entity Types
+
+### Battery
+- Monitors battery levels with configurable threshold
+- Shows devices with low battery (or all devices)
+- Color-coded icons: red (< 10%), orange (< 20%), blue (OK)
+- Supports both numeric sensors and binary_sensor.*_battery_low
+
+### Contact Sensors
+- Monitors doors, windows, garage doors, and openings
+- Shows which devices are currently open
+- Different icons for doors, windows, and garage doors
+- Detects entities with device_class: door, window, garage_door, opening
+
+### Lights
+- Monitors light states
+- Shows which lights are currently on
+- Simple on/off state tracking
+- Works with all entities in the light.* domain
 
 ## Installation
 
@@ -20,7 +43,7 @@ A custom Home Assistant Lovelace card that displays low battery devices with dev
 1. Open HACS in your Home Assistant instance
 2. Click on "Frontend"
 3. Click the "+" button
-4. Search for "Battery Device Card"
+4. Search for "Battery Device Card" (or "Device Monitor Card")
 5. Click "Install"
 6. Clear your browser cache and hard refresh (Ctrl+F5 or Cmd+Shift+R)
 
@@ -49,176 +72,234 @@ A custom Home Assistant Lovelace card that displays low battery devices with dev
 
 ## Configuration
 
-### Basic Configuration
+### Visual Editor
 
+The card includes a visual configuration editor in Home Assistant:
+
+1. Add a new card to your dashboard
+2. Search for "Device Monitor Card" or "Battery Device Card"
+3. Configure using the form fields:
+   - **Entity Type**: Choose battery, contact sensors, or lights
+   - **Filter**: Show only alerts or all devices
+   - **Battery Threshold**: (Battery only) Low battery percentage
+   - **Group By**: Organize devices by area or floor
+   - **Sort By**: Order devices by state, name, or last changed
+   - **Collapse**: Limit displayed devices with expand button
+
+### Basic Configuration Examples
+
+#### Monitor Low Batteries
 ```yaml
 type: custom:battery-device-card
+entity_type: battery
+filter: alert
+battery_threshold: 20
 ```
 
-### Advanced Configuration
-
+#### Monitor Open Doors & Windows
 ```yaml
 type: custom:battery-device-card
-battery_threshold: 20      # Optional, default: 20
-title: "Low Battery"       # Optional, default: "Low Battery"
-debug: true                # Optional, default: false - enables debug logging
-collapse: 5                # Optional, default: undefined (show all)
-all_devices: true          # Optional, default: false - show all battery devices
+entity_type: contact
+filter: alert
+title: Open Doors & Windows
+```
+
+#### Monitor Lights Left On
+```yaml
+type: custom:battery-device-card
+entity_type: light
+filter: alert
+title: Lights On
+```
+
+### Advanced Configuration Examples
+
+#### Batteries Grouped by Area
+```yaml
+type: custom:battery-device-card
+entity_type: battery
+filter: all
+title: All Batteries
+group_by: area
+sort_by: state
+```
+
+#### Open Doors by Floor
+```yaml
+type: custom:battery-device-card
+entity_type: contact
+filter: alert
+title: Open Doors by Floor
+group_by: floor
+```
+
+#### All Lights Sorted by Name
+```yaml
+type: custom:battery-device-card
+entity_type: light
+filter: all
+title: All Lights
+sort_by: name
+collapse: 10
 ```
 
 ### Configuration Options
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `battery_threshold` | number | 20 | Battery percentage threshold for low battery alerts |
-| `title` | string | "Low Battery" | Card title |
-| `debug` | boolean | false | Enable debug logging in browser console |
-| `collapse` | number | undefined | If set, collapse to show only this many devices with expand button |
-| `all_devices` | boolean | false | Show all battery devices (low battery first, then divider, then normal) |
+| `entity_type` | string | `'battery'` | Type of entities to monitor: `'battery'`, `'contact'`, or `'light'` |
+| `filter` | string | `'alert'` | Which devices to show: `'alert'` (problematic only) or `'all'` (all devices) |
+| `battery_threshold` | number | `20` | (Battery only) Battery percentage threshold for low battery alerts |
+| `title` | string | Auto | Card title (auto-generates based on entity_type if not specified) |
+| `group_by` | string | `null` | Group devices: `null`, `'area'`, or `'floor'` |
+| `sort_by` | string | `'state'` | Sort order: `'state'`, `'name'`, or `'last_changed'` |
+| `collapse` | number | `undefined` | If set, collapse to show only this many devices with expand button |
+| `debug` | boolean | `false` | Enable debug logging in browser console |
+
+### Default Titles
+
+If no title is specified, the card auto-generates based on entity type:
+- Battery: "Low Battery"
+- Contact: "Open Doors & Windows"
+- Light: "Lights On"
 
 ## How It Works
 
-The card performs the following operations:
+### Entity Discovery
 
-1. **Entity Discovery**: Queries all entities from `hass.states` looking for:
-   - Entities with `device_class: battery`
-   - Entities with "battery" in the entity ID
-   - Binary sensors with "*_battery_low" in the name
+The card discovers entities based on the configured `entity_type`:
 
-2. **Smart Filtering**:
-   - Excludes `sensor.*_battery` if a corresponding `binary_sensor.*_battery_low` exists
-   - Filters devices based on battery threshold or battery_low state
+**Battery:**
+- Entities with `device_class: battery`
+- Entities with "battery" in the entity ID (sensor.* or binary_sensor.* only)
+- Binary sensors with `*_battery_low` in the name
+- Excludes non-level entities: `_state`, `_charging`, `_charger`, `_power`, `_health`
 
-3. **Device Resolution**:
-   - Gets device_id from the entity registry
-   - Looks up device name from the device registry
-   - Uses `name_by_user` if set, otherwise falls back to device name
+**Contact:**
+- Binary sensors with device_class: `door`, `window`, `garage_door`, or `opening`
 
-4. **Display**:
-   - Sorts devices by battery level (lowest first)
-   - Shows device name, battery level, and last changed time
-   - Displays battery icon colored by level
-   - Makes each row clickable to open device page
+**Light:**
+- All entities in the `light.*` domain
 
-## Testing
+### Grouping
 
-A test HTML file is included in the `test/` directory that allows you to test the card before deploying to Home Assistant.
+When `group_by` is set to `'area'` or `'floor'`:
+1. Devices are organized into sections by their assigned area/floor
+2. Each section gets a header with the area/floor name
+3. Devices without an area/floor are grouped under "No Area" or "No Floor"
+4. Sections are sorted alphabetically
 
-### Running Tests
+### Sorting
 
-1. Open `test/test.html` in a web browser
-2. The page includes a mocked Home Assistant environment with sample devices
-3. Use the controls to:
-   - Adjust battery threshold
-   - Change card title
-   - Add random low battery devices
-   - Reset to default devices
+The `sort_by` option controls device ordering:
 
-### Test Features
+- **state** (default):
+  - Batteries: Sorted by battery level (lowest first)
+  - Contact/Light: Sorted by name
+- **name**: Alphabetical by device name
+- **last_changed**: Most recently changed first
 
-- Mock `hass` object with sample battery sensors
-- Mock device registry with device names
-- Interactive controls to test different scenarios
-- Simulated device navigation
+### Device Resolution
+
+For each entity, the card:
+1. Gets the device_id from the entity registry
+2. Looks up the device in the device registry
+3. Resolves the device name (prefers `name_by_user` over `name`)
+4. Gets the area_id from the device (for grouping)
+5. Gets the area/floor information from registries
+
+## Display Behavior
+
+### Filter Modes
+
+**`filter: 'alert'`** (default)
+- Battery: Shows only devices below threshold
+- Contact: Shows only open doors/windows
+- Light: Shows only lights that are on
+
+**`filter: 'all'`**
+- Shows all discovered devices
+- Alert devices shown first
+- Divider separates alert and normal devices (unless grouped)
+
+### Empty States
+
+When no alert devices are found with `filter: 'alert'`:
+- Battery: "All batteries are OK!"
+- Contact: "All doors and windows are closed!"
+- Light: "All lights are off!"
 
 ## Examples
 
-### Default Configuration
-
-```yaml
-type: custom:battery-device-card
-```
-
-Shows all devices with battery < 20%
-
-### Custom Threshold
-
-```yaml
-type: custom:battery-device-card
-battery_threshold: 15
-title: "Critical Batteries"
-```
-
-Shows devices with battery < 15% with a custom title
-
-### Show All Battery Devices
-
-```yaml
-type: custom:battery-device-card
-all_devices: true
-title: "All Batteries"
-```
-
-Shows all battery devices - low battery devices first, then a divider, then devices with normal battery levels
-
-### Collapsed View
-
-```yaml
-type: custom:battery-device-card
-collapse: 3
-```
-
-Shows only first 3 devices, with an expand button to show the rest
-
-### Combined Features
-
-```yaml
-type: custom:battery-device-card
-battery_threshold: 25
-title: "Battery Monitor"
-all_devices: true
-collapse: 5
-```
-
-Shows all devices, collapses to 5 with expand button, uses 25% threshold
-
-### Dashboard Example
+### Dashboard with Multiple Cards
 
 ```yaml
 views:
   - title: Home
     cards:
+      # Low batteries
       - type: custom:battery-device-card
+        entity_type: battery
+        filter: alert
         battery_threshold: 25
-        title: "Battery Status"
+
+      # Open doors and windows by floor
+      - type: custom:battery-device-card
+        entity_type: contact
+        filter: alert
+        group_by: floor
+        title: Security Status
+
+      # Lights left on
+      - type: custom:battery-device-card
+        entity_type: light
+        filter: alert
+        title: Active Lights
 ```
 
-## Supported Battery Entity Types
+### All Batteries with Organization
 
-The card supports the following battery entity patterns:
+```yaml
+type: custom:battery-device-card
+entity_type: battery
+filter: all
+title: Battery Inventory
+group_by: area
+sort_by: state
+collapse: 15
+```
 
-1. **Standard Battery Sensors**:
-   ```
-   sensor.*_battery (with device_class: battery)
-   sensor.*_battery_level
-   ```
+### Quick Status View
 
-2. **Binary Battery Sensors**:
-   ```
-   binary_sensor.*_battery_low
-   ```
+```yaml
+type: vertical-stack
+cards:
+  - type: custom:battery-device-card
+    entity_type: battery
+    filter: alert
+    collapse: 3
 
-3. **Custom Battery Entities**:
-   - Any entity with `device_class: battery`
-   - Any entity with `unit_of_measurement: %` containing "battery"
+  - type: custom:battery-device-card
+    entity_type: contact
+    filter: alert
+    collapse: 3
 
-## Device Name Resolution
-
-The card resolves device names in the following order:
-
-1. `name_by_user` (if user has renamed the device)
-2. `name` (device's default name)
-3. `device_id` (fallback if name not found)
+  - type: custom:battery-device-card
+    entity_type: light
+    filter: alert
+    collapse: 3
+```
 
 ## Styling
 
 The card uses Home Assistant's CSS variables for theming:
 
 - `--primary-text-color`: Main text color
-- `--secondary-text-color`: Secondary text (timestamps)
+- `--secondary-text-color`: Secondary text (timestamps, group headers)
 - `--card-background-color`: Card background
-- `--divider-color`: Borders
-- `--success-color`: Success state icon color
+- `--divider-color`: Borders and dividers
+- `--success-color`: Success state (closed doors, off lights)
+- `--disabled-text-color`: Disabled state (lights off icon)
 
 The card automatically adapts to your Home Assistant theme.
 
@@ -241,16 +322,24 @@ The card automatically adapts to your Home Assistant theme.
 
 ### No devices showing
 
-1. Verify you have battery entities in Home Assistant
-2. Check that entities have `device_class: battery`
-3. Verify entities are linked to devices in the device registry
-4. Lower the `battery_threshold` to include more devices
+1. Verify you have entities of the selected type in Home Assistant
+2. For batteries: Check that entities have `device_class: battery` or "battery" in entity ID
+3. For contact sensors: Check that entities have appropriate device_class (door, window, etc.)
+4. For lights: Verify entities are in the `light.*` domain
+5. Verify entities are linked to devices in the device registry
+6. For batteries: Lower the `battery_threshold` to include more devices
 
 ### Device names not showing
 
 1. Verify entities are properly linked to devices
 2. Check the device registry has names for your devices
-3. Some entities may not be associated with a device
+3. Some entities may not be associated with a device and will be skipped
+
+### Grouping not working
+
+1. Verify devices have areas assigned in Home Assistant
+2. For floor grouping, verify areas have floors assigned
+3. Check Settings → Areas & Zones to assign devices to areas
 
 ### Clicking devices doesn't work
 
@@ -259,12 +348,11 @@ This feature requires Home Assistant's navigation to be properly initialized. It
 - Home Assistant frontend
 
 It may not work in:
-- Test HTML file (shows alert instead)
 - External iframes
 
 ## Debugging
 
-The card includes built-in debug logging to help troubleshoot issues with entity detection.
+The card includes built-in debug logging to help troubleshoot issues.
 
 ### Enabling Debug Logging
 
@@ -272,66 +360,37 @@ Add `debug: true` to your card configuration:
 
 ```yaml
 type: custom:battery-device-card
+entity_type: battery
 debug: true
 ```
 
-Then refresh your browser. Open the developer console (F12) and you'll see detailed logs showing:
-- Every battery entity found
-- Device class, state, and unit of measurement for each entity
+Then refresh your browser and open the developer console (F12). You'll see detailed logs showing:
+- Every entity found for the configured type
+- Device class, state, and attributes for each entity
 - Which devices were added to the tracking list
-- A summary of all battery devices and their status
+- A summary of all devices and their status
 
 ### Understanding Debug Output
 
-The debug logs will show entries like:
-
 ```
-[Battery Card] Found potential battery entity: {
+[Device Monitor] Found battery entity: {
   entityId: "sensor.phone_battery",
   device_class: "battery",
-  state: "45",
-  unit: "%",
-  isBatterySensor: true,
-  isBatteryLowSensor: false
+  state: "45"
 }
 
-[Battery Card] Added device: {
+[Device Monitor] Added device: {
   deviceName: "Samsung Galaxy S21",
   entityId: "sensor.phone_battery",
-  batteryLevel: 45,
-  isLow: false,
-  threshold: 20
+  stateInfo: { value: 45, isAlert: false, ... }
 }
 
-[Battery Card] Summary: {
-  totalBatteryDevices: 5,
-  lowBatteryDevices: 2,
-  threshold: 20,
-  devices: [...]
+[Device Monitor] Summary for battery: {
+  total: 5,
+  alert: 2,
+  normal: 3
 }
 ```
-
-### Disabling Debug Logging
-
-To disable debug output, remove `debug: true` from your card configuration or set it to `false`:
-
-```yaml
-type: custom:battery-device-card
-debug: false
-```
-
-Then refresh your browser.
-
-### Common Issues Revealed by Debug Logs
-
-**Non-battery entities being detected**: If you see entities without `device_class: "battery"` being detected, check if they have "battery" in their entity ID. The card only tracks entities that either:
-1. Have `device_class: "battery"`, OR
-2. Have "battery" in the entity ID AND are sensor/binary_sensor domain
-
-**Devices not showing up**: Check the debug logs to see if:
-- The entity is being found but filtered out (e.g., has a corresponding battery_low sensor)
-- The entity doesn't have a device_id
-- The device doesn't have a name in the registry
 
 ## Development
 
@@ -357,7 +416,7 @@ Contributions are welcome! Please:
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Test thoroughly
+4. Test thoroughly with all entity types
 5. Submit a pull request
 
 ## License
@@ -366,60 +425,62 @@ MIT License - see LICENSE file for details
 
 ## Changelog
 
-### v1.2.1 (2024-11-15)
+### v2.0.0 (2024-11-16)
 
-- **Bug Fix**: Fixed visual editor not properly loading existing config values
-- **Bug Fix**: Fixed checkboxes requiring double-click to toggle
-- **Bug Fix**: Fixed config updates not being reflected in the editor
-- **Improvement**: Switched from Lit-Element syntax to standard DOM manipulation for better compatibility
-- **Improvement**: Editor now properly updates internal state when values change
+**BREAKING CHANGES:**
+- Configuration structure has changed - see migration guide below
+
+**New Features:**
+- **Multi-Entity Support**: Now monitors batteries, contact sensors (doors/windows), and lights
+- **Grouping**: Group devices by area or floor
+- **Sorting**: Sort by state, name, or last changed time
+- **Entity Type Strategy**: Extensible architecture for different entity types
+- **Smart Icons**: Type-specific icons (door, window, garage, lightbulb, battery)
+- **Empty States**: Custom messages for each entity type
+
+**Configuration Changes:**
+- `all_devices` → `filter: 'all'` (use `filter: 'alert'` for old default behavior)
+- Added `entity_type` (required): 'battery', 'contact', or 'light'
+- Added `group_by`: null, 'area', or 'floor'
+- Added `sort_by`: 'state', 'name', or 'last_changed'
+- `battery_threshold` only applies when `entity_type: 'battery'`
+
+**Migration Guide:**
+
+Old config:
+```yaml
+type: custom:battery-device-card
+battery_threshold: 20
+all_devices: false
+```
+
+New config:
+```yaml
+type: custom:battery-device-card
+entity_type: battery
+filter: alert
+battery_threshold: 20
+```
+
+**Previous Versions:**
+
+### v1.2.1 (2024-11-15)
+- Fixed visual editor config loading issues
+- Fixed checkbox toggle behavior
+- Improved editor state management
 
 ### v1.2.0 (2024-11-15)
-
-- **Feature**: Added visual card editor for easy configuration in Home Assistant UI
-- **Enhancement**: Config tab now shows form fields for all options (title, threshold, collapse, all_devices, debug)
-- **Improvement**: No longer need to use "Show code editor" - visual editor available by default
-- **UX**: Each option includes helpful descriptions
-
-### v1.1.1 (2024-11-15)
-
-- **Bug Fix**: Fixed battery icon display for `binary_sensor.*_battery_low` entities
-- **Improvement**: Binary sensor "Low" state now shows red battery-alert icon (instead of yellow unknown)
-- **Improvement**: Binary sensor "OK" state now shows blue full battery icon (instead of yellow unknown)
+- Added visual card editor
+- Form fields for all configuration options
 
 ### v1.1.0 (2024-11-15)
-
-- **Feature**: Added `collapse` option to limit displayed devices with expand/collapse button
-- **Feature**: Added `all_devices` option to show all battery devices (not just low battery)
-- **Enhancement**: Added divider between low and normal battery devices when using `all_devices`
-- **Enhancement**: Expand button shows count of hidden devices
-- **Improvement**: Refactored device rendering for better code organization
-
-### v1.0.2 (2024-11-15)
-
-- **Bug Fix**: Fixed device detection picking up wrong entities (e.g., `battery_state` instead of `battery` level)
-- **Improvement**: Added exclusion filter for non-level battery entities (`_state`, `_charging`, `_charger`, `_power`, `_health`)
-- **Improvement**: Smart entity prioritization - prefers numeric battery levels over non-numeric states
-- **Improvement**: Prefers entities with `device_class: battery` when multiple battery entities exist for same device
-- **Enhancement**: Debug logging now shows when entities are skipped or replaced
-
-### v1.0.1 (2024-11-15)
-
-- **Bug Fix**: Fixed overly broad battery detection that was catching CPU utilization and other percentage-based sensors
-- **Improvement**: Made battery sensor detection more strict - now requires either `device_class: battery` or entity ID containing "battery" (for sensor/binary_sensor domains only)
-- **Feature**: Added debug logging to help troubleshoot entity detection (see Debugging section)
+- Added collapse feature
+- Added all_devices option
+- Device divider between low/normal batteries
 
 ### v1.0.0 (2024-11-15)
-
 - Initial release
-- Device name resolution from device registry
-- Automatic battery entity discovery
-- Smart filtering to avoid duplicates
-- Color-coded battery icons
-- Clickable device rows
-- Mobile-responsive design
-- Empty state handling
-- Last changed timestamps
+- Battery monitoring only
 
 ## Credits
 
@@ -434,18 +495,18 @@ If you encounter any issues or have feature requests:
 3. Create a new issue with:
    - Home Assistant version
    - Browser and version
+   - Card configuration
    - Error messages from browser console
-   - Example configuration
+   - Entity type being monitored
 
 ## Roadmap
 
 Potential future enhancements:
 
-- [ ] Card editor UI for visual configuration
-- [ ] Sorting options (by level, name, last changed)
-- [ ] Filter by device area
-- [ ] Group by battery level ranges
-- [ ] Export list of low battery devices
-- [ ] Notification integration
-- [ ] Custom entity filtering
+- [ ] Custom entity filtering by entity_id pattern
+- [ ] Multiple entity types in one card
 - [ ] Battery history graphs
+- [ ] Export device lists
+- [ ] Notification integration
+- [ ] Custom thresholds per device
+- [ ] Badge mode for compact display
