@@ -1,9 +1,14 @@
-# Device Monitor Card
+# Device Monitor Card & Badge
 
-A versatile Home Assistant Lovelace card that monitors multiple types of devices: batteries, contact sensors (doors/windows), and lights. Features smart device name resolution, grouping by area/floor, and customizable sorting.
+A versatile Home Assistant Lovelace card and badge that monitors multiple types of devices: batteries, contact sensors (doors/windows), and lights. Features smart device name resolution, grouping by area/floor, and customizable sorting.
+
+**Includes:**
+- **Device Monitor Card**: Full card with device list, details, and grouping options
+- **Device Monitor Badge**: Compact badge showing alert count in format "TITLE (5/30)"
 
 ## Features
 
+### Card Features
 - **Multiple Entity Types**: Monitor batteries, contact sensors, or lights in a single card
 - **Smart Device Naming**: Choose between device names or entity friendly names
 - **Automatic Discovery**: Automatically finds entities based on device class and domain
@@ -17,6 +22,13 @@ A versatile Home Assistant Lovelace card that monitors multiple types of devices
 - **Responsive Design**: Mobile-friendly layout that matches Home Assistant's style
 - **Last Changed Info**: Shows when each entity state was last updated
 - **Empty State**: Displays a friendly message when all devices are in good state
+
+### Badge Features
+- **Compact Format**: Shows alert count as "TITLE (5/30)" - 5 alerts out of 30 total devices
+- **Same Entity Types**: Supports batteries, contact sensors, and lights
+- **Color-Coded Icons**: Green (OK), Red (battery alerts), Yellow (open doors/lights on), Gray (lights off)
+- **Visual Editor**: Easy configuration through Home Assistant UI
+- **One Installation**: Badge and card both included in a single package
 
 ## Supported Entity Types
 
@@ -221,6 +233,75 @@ For each entity, the card:
 4. Gets the area_id from the device (for grouping)
 5. Gets the area/floor information from registries
 
+## Device Monitor Badge
+
+The Device Monitor Badge provides a compact way to display device alert counts. It shows the same information as the card title in a standalone badge format: "TITLE (alert_count/total_devices)".
+
+### Badge Configuration
+
+The badge supports a simpler configuration than the full card:
+
+```yaml
+type: custom:device-monitor-badge
+entity_type: battery
+title: Low Battery
+battery_threshold: 20
+```
+
+### Badge Configuration Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `entity_type` | string | `'battery'` | Type of entities to monitor: `'battery'`, `'contact'`, or `'light'` |
+| `title` | string | Auto | Badge title (auto-generates based on entity_type if not specified) |
+| `battery_threshold` | number | `20` | (Battery only) Battery percentage threshold for low battery alerts |
+| `debug` | boolean | `false` | Enable debug logging in browser console |
+
+### Badge Examples
+
+#### Low Battery Badge
+```yaml
+type: custom:device-monitor-badge
+entity_type: battery
+title: Low Battery
+battery_threshold: 25
+```
+**Display:** "Low Battery (3/15)" - 3 devices with low battery out of 15 total
+
+#### Open Doors Badge
+```yaml
+type: custom:device-monitor-badge
+entity_type: contact
+title: Open Doors
+```
+**Display:** "Open Doors (0/8)" - No open doors, 8 contact sensors total
+
+#### Lights On Badge
+```yaml
+type: custom:device-monitor-badge
+entity_type: light
+title: Lights On
+```
+**Display:** "Lights On (2/12)" - 2 lights currently on, 12 lights total
+
+### Badge Visual Editor
+
+The badge includes a visual configuration editor in Home Assistant:
+
+1. Add a new card/badge to your dashboard
+2. Search for "Device Monitor Badge"
+3. Configure using the form fields:
+   - **Title**: Badge title text
+   - **Entity Type**: Choose battery, contact sensors, or lights
+   - **Battery Threshold**: (Battery only) Low battery percentage
+
+### Badge Colors
+
+The badge icon color changes based on alert state:
+- **Battery**: Green (all OK) or Red (alerts present)
+- **Contact**: Green (all closed) or Yellow (doors/windows open)
+- **Light**: Gray (all off) or Yellow (lights on)
+
 ## Display Behavior
 
 ### Filter Modes
@@ -302,6 +383,26 @@ cards:
     filter: alert
     collapse: 3
 ```
+
+### Compact Badge View
+
+```yaml
+type: horizontal-stack
+cards:
+  - type: custom:device-monitor-badge
+    entity_type: battery
+    title: Low Battery
+    battery_threshold: 20
+
+  - type: custom:device-monitor-badge
+    entity_type: contact
+    title: Open Doors
+
+  - type: custom:device-monitor-badge
+    entity_type: light
+    title: Lights On
+```
+**Display:** Three badges in a row showing alert counts for each device type
 
 ## Styling
 
@@ -441,9 +542,9 @@ MIT License - see LICENSE file for details
 
 ### v1.0.0 (2025-11-16)
 
-Initial release of Device Monitor Card!
+Initial release of Device Monitor Card & Badge!
 
-**Features:**
+**Card Features:**
 - **Multi-Entity Support**: Monitor batteries, contact sensors (doors/windows), and lights
 - **Smart Device Naming**: Choose between device names or entity friendly names
 - **Automatic Discovery**: Automatically finds entities based on device class and domain
@@ -456,6 +557,13 @@ Initial release of Device Monitor Card!
 - **Clickable Devices**: Click any device to open its device page in Home Assistant
 - **Responsive Design**: Mobile-friendly layout that matches Home Assistant's style
 - **Visual Editor**: Full visual configuration editor in Home Assistant UI
+
+**Badge Features:**
+- **Compact Display**: Shows alert count in format "TITLE (5/30)"
+- **Same Entity Types**: Supports batteries, contact sensors, and lights
+- **Color-Coded**: Icon color changes based on alert state (green/red/yellow/gray)
+- **Visual Editor**: Configuration editor for easy setup
+- **Reusable Logic**: Shares detection and evaluation logic with the card
 
 ## Credits
 
@@ -478,10 +586,10 @@ If you encounter any issues or have feature requests:
 
 Potential future enhancements:
 
+- [x] Badge mode for compact display (v1.0.0)
 - [ ] Custom entity filtering by entity_id pattern
 - [ ] Multiple entity types in one card
 - [ ] Battery history graphs
 - [ ] Export device lists
 - [ ] Notification integration
 - [ ] Custom thresholds per device
-- [ ] Badge mode for compact display

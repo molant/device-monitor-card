@@ -1,7 +1,11 @@
 /**
- * Device Monitor Card
- * A custom Home Assistant Lovelace card that monitors battery levels,
+ * Device Monitor Card & Badge
+ * A custom Home Assistant Lovelace card and badge that monitors battery levels,
  * contact sensors (doors/windows), and lights with device names from the device registry.
+ *
+ * Includes:
+ * - Device Monitor Card: Full card with device list and details
+ * - Device Monitor Badge: Compact badge showing alert count
  *
  * @version 1.0.0
  * @author Custom Card
@@ -98,7 +102,16 @@ const ENTITY_TYPES = {
 
     // Get empty state message
     emptyMessage: 'All batteries are OK!',
-    emptyIcon: 'mdi:battery-check'
+    emptyIcon: 'mdi:battery-check',
+
+    // Default title for badge
+    defaultTitle: 'Low Battery',
+
+    // Get badge color based on alert count
+    getBadgeColor: (alertCount) => {
+      if (alertCount === 0) return 'var(--success-color, #4caf50)';
+      return 'var(--label-badge-red, #df4c1e)';
+    }
   },
 
   contact: {
@@ -148,7 +161,16 @@ const ENTITY_TYPES = {
 
     // Get empty state message
     emptyMessage: 'All doors and windows are closed!',
-    emptyIcon: 'mdi:door-closed'
+    emptyIcon: 'mdi:door-closed',
+
+    // Default title for badge
+    defaultTitle: 'Open Doors',
+
+    // Get badge color based on alert count
+    getBadgeColor: (alertCount) => {
+      if (alertCount === 0) return 'var(--success-color, #4caf50)';
+      return 'var(--label-badge-yellow, #f4b400)';
+    }
   },
 
   light: {
@@ -182,7 +204,16 @@ const ENTITY_TYPES = {
 
     // Get empty state message
     emptyMessage: 'All lights are off!',
-    emptyIcon: 'mdi:lightbulb-outline'
+    emptyIcon: 'mdi:lightbulb-outline',
+
+    // Default title for badge
+    defaultTitle: 'Lights On',
+
+    // Get badge color based on alert count
+    getBadgeColor: (alertCount) => {
+      if (alertCount === 0) return 'var(--disabled-text-color, #9e9e9e)';
+      return 'var(--label-badge-yellow, #f4b400)';
+    }
   }
 };
 
@@ -1314,11 +1345,506 @@ class DeviceMonitorCardEditor extends HTMLElement {
   }
 }
 
-// Register the custom card
+/**
+ * Device Monitor Badge
+ * A compact badge that displays alert count in format: "TITLE (5/30)"
+ */
+class DeviceMonitorBadge extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: 'open' });
+    this._config = {};
+  }
+
+  /**
+   * Called when the badge configuration is set
+   */
+  setConfig(config) {
+    if (!config) {
+      throw new Error('Invalid configuration');
+    }
+
+    const entityType = config.entity_type || 'battery';
+
+    // Validate entity type
+    if (!ENTITY_TYPES[entityType]) {
+      throw new Error(`Invalid entity_type: ${entityType}. Must be one of: ${Object.keys(ENTITY_TYPES).join(', ')}`);
+    }
+
+    const strategy = ENTITY_TYPES[entityType];
+
+    this._config = {
+      entity_type: entityType,
+      battery_threshold: config.battery_threshold || 20,
+      title: config.title || strategy.defaultTitle,
+      debug: config.debug || false,
+      ...config
+    };
+
+    this.render();
+  }
+
+  /**
+   * Called when hass object is updated
+   */
+  set hass(hass) {
+    this._hass = hass;
+    this.render();
+  }
+
+  /**
+   * Get all devices for the configured entity type
+   */
+  _getDevices() {
+    if (!this._hass) {
+      return { alertDevices: [], totalDevices: 0 };
+    }
+
+    const entityType = this._config.entity_type;
+    const strategy = ENTITY_TYPES[entityType];
+    const entities = this._hass.states;
+    const devices = {};
+    const batteryLowBinarySensors = new Set();
+
+    // Special handling for battery: find binary_sensor.*_battery_low entities
+    if (entityType === 'battery') {
+      Object.keys(entities).forEach(entityId => {
+        if (entityId.includes('_battery_low') && entityId.startsWith('binary_sensor.')) {
+          batteryLowBinarySensors.add(entityId.replace('binary_sensor.', 'sensor.').replace('_battery_low', '_battery'));
+        }
+      });
+    }
+
+    // Process all entities
+    Object.keys(entities).forEach(entityId => {
+      const entity = entities[entityId];
+      const attributes = entity.attributes || {};
+
+      // Check if this entity matches our type
+      if (!strategy.detect(entityId, attributes)) {
+        return;
+      }
+
+      // Debug logging
+      if (this._config.debug) {
+        console.log(`[Device Monitor Badge] Found ${entityType} entity:`, {
+          entityId,
+          device_class: attributes.device_class,
+          state: entity.state
+        });
+      }
+
+      // Skip if there's a corresponding battery_low binary sensor (battery only)
+      if (entityType === 'battery' && batteryLowBinarySensors.has(entityId)) {
+        return;
+      }
+
+      // Get device information
+      const deviceId = this._getDeviceId(entityId);
+      if (!deviceId) {
+        return; // Skip entities without device
+      }
+
+      const deviceName = this._getDeviceName(deviceId);
+      if (!deviceName) {
+        return; // Skip if we can't get device name
+      }
+
+      // Evaluate state using strategy
+      const stateInfo = strategy.evaluateState({ ...entity, entity_id: entityId }, this._config);
+
+      // Store or update device info
+      // For batteries, prefer numeric levels; for others, just use first match
+      const existingDevice = devices[deviceId];
+      const shouldUpdate = !existingDevice ||
+        (entityType === 'battery' && stateInfo.numericValue !== null && existingDevice.stateInfo.numericValue === null);
+
+      if (shouldUpdate) {
+        devices[deviceId] = {
+          deviceId,
+          deviceName,
+          entityId,
+          stateInfo
+        };
+
+        if (this._config.debug) {
+          console.log(`[Device Monitor Badge] ${existingDevice ? 'Updated' : 'Added'} device:`, {
+            deviceName,
+            entityId,
+            stateInfo
+          });
+        }
+      }
+    });
+
+    // Get all devices and separate by alert status
+    let allDevices = Object.values(devices);
+    const alertDevices = allDevices.filter(d => d.stateInfo.isAlert);
+
+    // Summary debug logging
+    if (this._config.debug) {
+      console.log(`[Device Monitor Badge] Summary for ${entityType}:`, {
+        total: allDevices.length,
+        alert: alertDevices.length
+      });
+    }
+
+    return {
+      alertDevices,
+      totalDevices: allDevices.length
+    };
+  }
+
+  /**
+   * Get device ID for an entity
+   */
+  _getDeviceId(entityId) {
+    if (!this._hass || !this._hass.entities) {
+      return null;
+    }
+
+    const entity = this._hass.entities[entityId];
+    return entity?.device_id || null;
+  }
+
+  /**
+   * Get device name from device registry
+   */
+  _getDeviceName(deviceId) {
+    if (!this._hass || !this._hass.devices) {
+      return null;
+    }
+
+    const device = this._hass.devices[deviceId];
+    if (!device) {
+      return null;
+    }
+
+    return device.name_by_user || device.name || deviceId;
+  }
+
+  /**
+   * Render the badge
+   */
+  render() {
+    if (!this._hass) {
+      this.shadowRoot.innerHTML = `
+        <div class="badge">
+          <div class="badge-content">...</div>
+        </div>
+      `;
+      return;
+    }
+
+    const { alertDevices, totalDevices } = this._getDevices();
+    const strategy = ENTITY_TYPES[this._config.entity_type];
+    const alertCount = alertDevices.length;
+    const badgeText = `${this._config.title} (${alertCount}/${totalDevices})`;
+    const icon = strategy.getIcon({});
+    const color = strategy.getBadgeColor(alertCount);
+
+    this.shadowRoot.innerHTML = `
+      <style>
+        :host {
+          display: inline-block;
+        }
+
+        .badge {
+          display: flex;
+          align-items: center;
+          padding: 8px 16px;
+          background: var(--card-background-color, #fff);
+          border-radius: 18px;
+          box-shadow: var(--ha-card-box-shadow, 0 2px 4px rgba(0,0,0,0.1));
+          font-family: var(--paper-font-body1_-_font-family);
+          cursor: default;
+          user-select: none;
+        }
+
+        .badge-icon {
+          margin-right: 8px;
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+        }
+
+        .badge-icon ha-icon {
+          width: 24px;
+          height: 24px;
+          color: ${color};
+        }
+
+        .badge-content {
+          font-size: 14px;
+          font-weight: 500;
+          color: var(--primary-text-color);
+          white-space: nowrap;
+        }
+
+        .alert-count {
+          font-weight: 700;
+          color: ${color};
+        }
+
+        @media (max-width: 600px) {
+          .badge {
+            padding: 6px 12px;
+          }
+
+          .badge-content {
+            font-size: 13px;
+          }
+
+          .badge-icon ha-icon {
+            width: 20px;
+            height: 20px;
+          }
+        }
+      </style>
+
+      <div class="badge">
+        <div class="badge-icon">
+          <ha-icon icon="${icon}"></ha-icon>
+        </div>
+        <div class="badge-content">${badgeText}</div>
+      </div>
+    `;
+  }
+
+  /**
+   * Get editor stub (required for badge editor)
+   */
+  static getStubConfig() {
+    return {
+      entity_type: 'battery',
+      battery_threshold: 20,
+      title: 'Low Battery',
+      debug: false
+    };
+  }
+
+  /**
+   * Get configuration description for the badge editor
+   */
+  static getConfigElement() {
+    return document.createElement('device-monitor-badge-editor');
+  }
+}
+
+/**
+ * Badge Editor
+ */
+class DeviceMonitorBadgeEditor extends HTMLElement {
+  constructor() {
+    super();
+    this._debounceTimeout = null;
+  }
+
+  setConfig(config) {
+    this._config = { ...config };
+
+    // Only render if not already rendered
+    if (!this._rendered) {
+      this.render();
+      this._rendered = true;
+    }
+  }
+
+  configChanged(newConfig, immediate = false) {
+    // Update internal config
+    this._config = newConfig;
+
+    // Clear existing timeout
+    if (this._debounceTimeout) {
+      clearTimeout(this._debounceTimeout);
+    }
+
+    // Dispatch event immediately or after delay
+    const dispatchEvent = () => {
+      const event = new Event('config-changed', {
+        bubbles: true,
+        composed: true,
+      });
+      event.detail = { config: newConfig };
+      this.dispatchEvent(event);
+    };
+
+    if (immediate) {
+      dispatchEvent();
+    } else {
+      // Debounce text input changes
+      this._debounceTimeout = setTimeout(dispatchEvent, 500);
+    }
+  }
+
+  render() {
+    if (!this._config) {
+      return;
+    }
+
+    const entityType = this._config.entity_type || 'battery';
+    const showBatteryThreshold = entityType === 'battery';
+
+    this.innerHTML = `
+      <style>
+        .option {
+          padding: 12px 0;
+          display: flex;
+          align-items: center;
+        }
+
+        .option:not(:last-child) {
+          border-bottom: 1px solid var(--divider-color);
+        }
+
+        .option label {
+          flex: 1;
+          font-weight: 500;
+          color: var(--primary-text-color);
+        }
+
+        .option .description {
+          font-size: 0.9em;
+          color: var(--secondary-text-color);
+          margin-top: 4px;
+        }
+
+        .option input[type="text"],
+        .option input[type="number"],
+        .option select {
+          width: 150px;
+          padding: 8px;
+          border: 1px solid var(--divider-color);
+          border-radius: 4px;
+          background: var(--card-background-color);
+          color: var(--primary-text-color);
+          font-size: 14px;
+        }
+
+        .option input[type="checkbox"] {
+          width: 24px;
+          height: 24px;
+          cursor: pointer;
+        }
+
+        .label-container {
+          flex: 1;
+        }
+
+        .option.hidden {
+          display: none;
+        }
+      </style>
+
+      <div class="badge-config">
+        <div class="option">
+          <div class="label-container">
+            <label>Title</label>
+            <div class="description">Badge title text</div>
+          </div>
+          <input
+            id="title"
+            type="text"
+            value="${this._config.title || ''}"
+            placeholder="Auto"
+          />
+        </div>
+
+        <div class="option">
+          <div class="label-container">
+            <label>Entity Type</label>
+            <div class="description">Type of entities to monitor</div>
+          </div>
+          <select id="entity_type">
+            <option value="battery" ${entityType === 'battery' ? 'selected' : ''}>Battery</option>
+            <option value="contact" ${entityType === 'contact' ? 'selected' : ''}>Contact Sensors</option>
+            <option value="light" ${entityType === 'light' ? 'selected' : ''}>Lights</option>
+          </select>
+        </div>
+
+        <div class="option ${showBatteryThreshold ? '' : 'hidden'}" id="battery_threshold_option">
+          <div class="label-container">
+            <label>Battery Threshold</label>
+            <div class="description">Low battery percentage threshold</div>
+          </div>
+          <input
+            id="battery_threshold"
+            type="number"
+            min="0"
+            max="100"
+            value="${this._config.battery_threshold !== undefined ? this._config.battery_threshold : 20}"
+          />
+        </div>
+
+        <div class="option">
+          <div class="label-container">
+            <label>Debug Mode</label>
+            <div class="description">Enable debug logging in browser console</div>
+          </div>
+          <input
+            id="debug"
+            type="checkbox"
+            ${this._config.debug ? 'checked' : ''}
+          />
+        </div>
+      </div>
+    `;
+
+    // Helper function to handle config updates
+    const updateConfig = (configUpdater, debounce = false) => {
+      return (ev) => {
+        const newConfig = { ...this._config };
+        configUpdater(newConfig, ev.target);
+        this.configChanged(newConfig, !debounce); // invert debounce flag for immediate parameter
+
+        // Re-render if entity type changed (to show/hide battery threshold)
+        if (ev.target.id === 'entity_type') {
+          this._rendered = false;
+          this.setConfig(newConfig);
+        }
+      };
+    };
+
+    // Add event listeners using oninput/onchange to avoid multiple listeners
+    const titleInput = this.querySelector('#title');
+    const entityTypeInput = this.querySelector('#entity_type');
+    const thresholdInput = this.querySelector('#battery_threshold');
+    const debugInput = this.querySelector('#debug');
+
+    // Text and number inputs - debounced to prevent focus loss
+    titleInput.oninput = updateConfig((config, target) => {
+      config.title = target.value;
+    }, true);
+
+    if (thresholdInput) {
+      thresholdInput.oninput = updateConfig((config, target) => {
+        config.battery_threshold = Number(target.value);
+      }, true);
+    }
+
+    // Selects and checkboxes - immediate updates
+    entityTypeInput.onchange = updateConfig((config, target) => {
+      config.entity_type = target.value;
+      // Update title to match new entity type default if current title matches old default
+      const strategy = ENTITY_TYPES[target.value];
+      if (strategy && !config.title) {
+        config.title = strategy.defaultTitle;
+      }
+    }, false);
+
+    debugInput.onchange = updateConfig((config, target) => {
+      config.debug = target.checked;
+    }, false);
+  }
+}
+
+// Register the custom card and badge
 customElements.define('device-monitor-card', DeviceMonitorCard);
 customElements.define('device-monitor-card-editor', DeviceMonitorCardEditor);
+customElements.define('device-monitor-badge', DeviceMonitorBadge);
+customElements.define('device-monitor-badge-editor', DeviceMonitorBadgeEditor);
 
-// Register card with Home Assistant
+// Register card and badge with Home Assistant
 window.customCards = window.customCards || [];
 window.customCards.push({
   type: 'device-monitor-card',
@@ -1327,9 +1853,21 @@ window.customCards.push({
   preview: false,
   documentationURL: 'https://github.com/molant/battery-monitor-card',
 });
+window.customCards.push({
+  type: 'device-monitor-badge',
+  name: 'Device Monitor Badge',
+  description: 'Compact badge showing device alert counts for batteries, contact sensors, and lights',
+  preview: false,
+  documentationURL: 'https://github.com/molant/battery-monitor-card',
+});
 
 console.info(
   '%c DEVICE-MONITOR-CARD %c 1.0.0 ',
   'color: white; background: #039be5; font-weight: 700;',
   'color: #039be5; background: white; font-weight: 700;'
+);
+console.info(
+  '%c DEVICE-MONITOR-BADGE %c 1.0.0 ',
+  'color: white; background: #26a69a; font-weight: 700;',
+  'color: #26a69a; background: white; font-weight: 700;'
 );
