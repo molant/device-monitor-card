@@ -1,7 +1,7 @@
 {
-  "name": "Battery Device Card",
+  "name": "Device Monitor Card",
   "render_readme": true,
-  "filename": "battery-device-card.js",
+  "filename": "device-monitor-card.js",
   "content_in_root": false,
-  "homeassistant": "2023.1.0"
+  "homeassistant": "2024.1.0"
 }
