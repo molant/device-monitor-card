@@ -1529,10 +1529,10 @@ class DeviceMonitorBadge extends HTMLElement {
   render() {
     if (!this._hass) {
       this.shadowRoot.innerHTML = `
-        <div class="badge">
-          <ha-icon icon="mdi:battery"></ha-icon>
-          <span>...</span>
-        </div>
+        <ha-badge>
+          <ha-icon slot="icon" icon="mdi:battery"></ha-icon>
+          ...
+        </ha-badge>
       `;
       return;
     }
@@ -1547,57 +1547,18 @@ class DeviceMonitorBadge extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>
         :host {
-          display: inline-flex;
-          align-items: center;
+          display: inline-block;
         }
 
-        .badge {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 8px 12px;
-          background: var(--ha-card-background, var(--card-background-color, white));
-          border-radius: 18px;
-          box-shadow: var(--ha-card-box-shadow, 0 2px 4px rgba(0,0,0,0.1));
-          white-space: nowrap;
-          cursor: default;
-        }
-
-        .badge ha-icon {
-          flex-shrink: 0;
-          width: 24px;
-          height: 24px;
-          color: ${color};
-        }
-
-        .badge-text {
-          font-size: 14px;
-          font-weight: 500;
-          color: var(--primary-text-color);
-          line-height: 1.2;
-        }
-
-        @media (max-width: 600px) {
-          .badge {
-            padding: 6px 10px;
-            gap: 6px;
-          }
-
-          .badge ha-icon {
-            width: 20px;
-            height: 20px;
-          }
-
-          .badge-text {
-            font-size: 13px;
-          }
+        ha-badge {
+          --badge-color: ${color};
         }
       </style>
 
-      <div class="badge">
-        <ha-icon icon="${icon}"></ha-icon>
-        <span class="badge-text">${badgeText}</span>
-      </div>
+      <ha-badge>
+        <ha-icon slot="icon" icon="${icon}"></ha-icon>
+        ${badgeText}
+      </ha-badge>
     `;
   }
 
