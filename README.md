@@ -284,16 +284,28 @@ title: Lights On
 ```
 **Display:** "Lights On (2/12)" - 2 lights currently on, 12 lights total
 
+### Adding the Badge
+
+The Device Monitor Badge can be added in two ways:
+
+**Option 1: As a Badge (Top of View)**
+1. Click "Add Badge" in the badges section at the top of your view
+2. Search for "Device Monitor Badge"
+3. Configure the entity type and title
+
+**Option 2: As a Card (Anywhere on Dashboard)**
+1. Click "Add Card" in your dashboard
+2. Search for "Device Monitor Badge"
+3. Configure using the visual editor
+
+**Note:** If the badge doesn't appear in the "Add Badge" picker, add it via "Add Card" instead - it will still display in a compact badge format suitable for any location on your dashboard.
+
 ### Badge Visual Editor
 
-The badge includes a visual configuration editor in Home Assistant:
-
-1. Add a new card/badge to your dashboard
-2. Search for "Device Monitor Badge"
-3. Configure using the form fields:
-   - **Title**: Badge title text
-   - **Entity Type**: Choose battery, contact sensors, or lights
-   - **Battery Threshold**: (Battery only) Low battery percentage
+The badge includes a visual configuration editor:
+- **Title**: Badge title text
+- **Entity Type**: Choose battery, contact sensors, or lights
+- **Battery Threshold**: (Battery only) Low battery percentage
 
 ### Badge Colors
 

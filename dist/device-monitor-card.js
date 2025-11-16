@@ -1529,9 +1529,11 @@ class DeviceMonitorBadge extends HTMLElement {
   render() {
     if (!this._hass) {
       this.shadowRoot.innerHTML = `
-        <div class="badge">
-          <div class="badge-content">...</div>
-        </div>
+        <ha-card>
+          <div class="badge-container">
+            <div class="badge-content">...</div>
+          </div>
+        </ha-card>
       `;
       return;
     }
@@ -1546,68 +1548,80 @@ class DeviceMonitorBadge extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>
         :host {
-          display: inline-block;
+          display: block;
         }
 
-        .badge {
+        ha-card {
+          padding: 0;
           display: flex;
+          flex-direction: column;
           align-items: center;
-          padding: 8px 16px;
-          background: var(--card-background-color, #fff);
-          border-radius: 18px;
-          box-shadow: var(--ha-card-box-shadow, 0 2px 4px rgba(0,0,0,0.1));
-          font-family: var(--paper-font-body1_-_font-family);
-          cursor: default;
-          user-select: none;
+          justify-content: center;
+          height: 100%;
+        }
+
+        .badge-container {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding: 16px;
+          width: 100%;
         }
 
         .badge-icon {
-          margin-right: 8px;
-          flex-shrink: 0;
+          margin-bottom: 8px;
           display: flex;
           align-items: center;
+          justify-content: center;
         }
 
         .badge-icon ha-icon {
-          width: 24px;
-          height: 24px;
+          width: 40px;
+          height: 40px;
           color: ${color};
         }
 
         .badge-content {
-          font-size: 14px;
+          font-size: 13px;
           font-weight: 500;
           color: var(--primary-text-color);
+          text-align: center;
+          line-height: 1.3;
           white-space: nowrap;
         }
 
-        .alert-count {
-          font-weight: 700;
-          color: ${color};
+        .badge-title {
+          font-size: 11px;
+          color: var(--secondary-text-color);
+          margin-top: 4px;
+          text-align: center;
         }
 
         @media (max-width: 600px) {
-          .badge {
-            padding: 6px 12px;
-          }
-
-          .badge-content {
-            font-size: 13px;
+          .badge-container {
+            padding: 12px;
           }
 
           .badge-icon ha-icon {
-            width: 20px;
-            height: 20px;
+            width: 32px;
+            height: 32px;
+          }
+
+          .badge-content {
+            font-size: 12px;
           }
         }
       </style>
 
-      <div class="badge">
-        <div class="badge-icon">
-          <ha-icon icon="${icon}"></ha-icon>
+      <ha-card>
+        <div class="badge-container">
+          <div class="badge-icon">
+            <ha-icon icon="${icon}"></ha-icon>
+          </div>
+          <div class="badge-content">${alertCount}/${totalDevices}</div>
+          <div class="badge-title">${this._config.title}</div>
         </div>
-        <div class="badge-content">${badgeText}</div>
-      </div>
+      </ha-card>
     `;
   }
 
@@ -1844,7 +1858,7 @@ customElements.define('device-monitor-card-editor', DeviceMonitorCardEditor);
 customElements.define('device-monitor-badge', DeviceMonitorBadge);
 customElements.define('device-monitor-badge-editor', DeviceMonitorBadgeEditor);
 
-// Register card and badge with Home Assistant
+// Register card with Home Assistant
 window.customCards = window.customCards || [];
 window.customCards.push({
   type: 'device-monitor-card',
@@ -1853,12 +1867,25 @@ window.customCards.push({
   preview: false,
   documentationURL: 'https://github.com/molant/battery-monitor-card',
 });
+
+// Register badge with Home Assistant - also in customCards as badges are a type of card
 window.customCards.push({
   type: 'device-monitor-badge',
   name: 'Device Monitor Badge',
   description: 'Compact badge showing device alert counts for batteries, contact sensors, and lights',
   preview: false,
   documentationURL: 'https://github.com/molant/battery-monitor-card',
+});
+
+// Also register as a badge element for the badge picker
+if (!window.customBadges) {
+  window.customBadges = [];
+}
+window.customBadges.push({
+  type: 'device-monitor-badge',
+  name: 'Device Monitor Badge',
+  description: 'Compact badge showing device alert counts',
+  preview: false,
 });
 
 console.info(
