@@ -17,7 +17,6 @@ package-lock.json
 yarn.lock
 
 # Build
-dist/
 build/
 *.min.js
 *.map
