@@ -615,6 +615,11 @@ class BatteryDeviceCard extends HTMLElement {
  * Card Editor
  */
 class BatteryDeviceCardEditor extends HTMLElement {
+  constructor() {
+    super();
+    this._debounceTimeout = null;
+  }
+
   setConfig(config) {
     this._config = { ...config };
 
@@ -625,16 +630,31 @@ class BatteryDeviceCardEditor extends HTMLElement {
     }
   }
 
-  configChanged(newConfig) {
-    const event = new Event('config-changed', {
-      bubbles: true,
-      composed: true,
-    });
-    event.detail = { config: newConfig };
-    this.dispatchEvent(event);
-
-    // Update internal config without re-rendering
+  configChanged(newConfig, immediate = false) {
+    // Update internal config
     this._config = newConfig;
+
+    // Clear existing timeout
+    if (this._debounceTimeout) {
+      clearTimeout(this._debounceTimeout);
+    }
+
+    // Dispatch event immediately or after delay
+    const dispatchEvent = () => {
+      const event = new Event('config-changed', {
+        bubbles: true,
+        composed: true,
+      });
+      event.detail = { config: newConfig };
+      this.dispatchEvent(event);
+    };
+
+    if (immediate) {
+      dispatchEvent();
+    } else {
+      // Debounce text input changes
+      this._debounceTimeout = setTimeout(dispatchEvent, 500);
+    }
   }
 
   render() {
@@ -755,27 +775,29 @@ class BatteryDeviceCardEditor extends HTMLElement {
       </div>
     `;
 
-    // Add event listeners after HTML is inserted
+    // Add event listeners using oninput/onchange to avoid multiple listeners
     const titleInput = this.querySelector('#title');
     const thresholdInput = this.querySelector('#battery_threshold');
     const collapseInput = this.querySelector('#collapse');
     const allDevicesInput = this.querySelector('#all_devices');
     const debugInput = this.querySelector('#debug');
 
-    titleInput.addEventListener('input', (ev) => {
+    // Text input - debounced
+    titleInput.oninput = (ev) => {
       const newConfig = { ...this._config };
       newConfig.title = ev.target.value;
-      this.configChanged(newConfig);
-    });
+      this.configChanged(newConfig, false); // debounced
+    };
 
-    thresholdInput.addEventListener('input', (ev) => {
+    // Number inputs - immediate
+    thresholdInput.oninput = (ev) => {
       const newConfig = { ...this._config };
       const value = Number(ev.target.value);
       newConfig.battery_threshold = value;
-      this.configChanged(newConfig);
-    });
+      this.configChanged(newConfig, true); // immediate
+    };
 
-    collapseInput.addEventListener('input', (ev) => {
+    collapseInput.oninput = (ev) => {
       const newConfig = { ...this._config };
       const value = ev.target.value;
       if (value === '') {
@@ -783,20 +805,21 @@ class BatteryDeviceCardEditor extends HTMLElement {
       } else {
         newConfig.collapse = Number(value);
       }
-      this.configChanged(newConfig);
-    });
+      this.configChanged(newConfig, true); // immediate
+    };
 
-    allDevicesInput.addEventListener('change', (ev) => {
+    // Checkboxes - immediate
+    allDevicesInput.onchange = (ev) => {
       const newConfig = { ...this._config };
       newConfig.all_devices = ev.target.checked;
-      this.configChanged(newConfig);
-    });
+      this.configChanged(newConfig, true); // immediate
+    };
 
-    debugInput.addEventListener('change', (ev) => {
+    debugInput.onchange = (ev) => {
       const newConfig = { ...this._config };
       newConfig.debug = ev.target.checked;
-      this.configChanged(newConfig);
-    });
+      this.configChanged(newConfig, true); // immediate
+    };
   }
 }
 
