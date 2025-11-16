@@ -4,7 +4,7 @@ A versatile Home Assistant Lovelace card and badge that monitors multiple types 
 
 **Includes:**
 - **Device Monitor Card**: Full card with device list, details, and grouping options
-- **Device Monitor Badge**: Compact badge showing alert count in format "TITLE (5/30)"
+- **Device Monitor Badge**: Compact horizontal badge showing [Icon] TITLE (5/30)
 
 ## Features
 
@@ -24,7 +24,8 @@ A versatile Home Assistant Lovelace card and badge that monitors multiple types 
 - **Empty State**: Displays a friendly message when all devices are in good state
 
 ### Badge Features
-- **Compact Format**: Shows alert count as "TITLE (5/30)" - 5 alerts out of 30 total devices
+- **Horizontal Format**: Displays as [Icon] Text (5/30) - icon on left, count on right
+- **Compact Display**: Perfect for the badge area at top of views or anywhere on dashboard
 - **Same Entity Types**: Supports batteries, contact sensors, and lights
 - **Color-Coded Icons**: Green (OK), Red (battery alerts), Yellow (open doors/lights on), Gray (lights off)
 - **Visual Editor**: Easy configuration through Home Assistant UI
@@ -235,7 +236,11 @@ For each entity, the card:
 
 ## Device Monitor Badge
 
-The Device Monitor Badge provides a compact way to display device alert counts. It shows the same information as the card title in a standalone badge format: "TITLE (alert_count/total_devices)".
+The Device Monitor Badge provides a compact horizontal badge to display device alert counts. It shows an icon and text in the format: [🔋] "TITLE (alert_count/total_devices)"
+
+The badge displays horizontally with:
+- Color-coded icon on the left
+- Alert count text on the right: "Low Battery (3/15)"
 
 ### Badge Configuration
 
@@ -266,7 +271,8 @@ entity_type: battery
 title: Low Battery
 battery_threshold: 25
 ```
-**Display:** "Low Battery (3/15)" - 3 devices with low battery out of 15 total
+**Display:** [🔋] Low Battery (3/15)
+- Shows battery icon (red if alerts, green if OK) + text
 
 #### Open Doors Badge
 ```yaml
@@ -274,7 +280,8 @@ type: custom:device-monitor-badge
 entity_type: contact
 title: Open Doors
 ```
-**Display:** "Open Doors (0/8)" - No open doors, 8 contact sensors total
+**Display:** [🚪] Open Doors (0/8)
+- Shows door icon (yellow if open, green if closed) + text
 
 #### Lights On Badge
 ```yaml
@@ -282,7 +289,8 @@ type: custom:device-monitor-badge
 entity_type: light
 title: Lights On
 ```
-**Display:** "Lights On (2/12)" - 2 lights currently on, 12 lights total
+**Display:** [💡] Lights On (2/12)
+- Shows light icon (yellow if on, gray if off) + text
 
 ### Adding the Badge
 

@@ -1530,8 +1530,9 @@ class DeviceMonitorBadge extends HTMLElement {
     if (!this._hass) {
       this.shadowRoot.innerHTML = `
         <ha-card>
-          <div class="badge-container">
-            <div class="badge-content">...</div>
+          <div class="badge">
+            <ha-icon icon="mdi:battery"></ha-icon>
+            <span>...</span>
           </div>
         </ha-card>
       `;
@@ -1548,78 +1549,59 @@ class DeviceMonitorBadge extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>
         :host {
-          display: block;
+          display: inline-block;
         }
 
         ha-card {
           padding: 0;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
           height: 100%;
-        }
-
-        .badge-container {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          padding: 16px;
-          width: 100%;
-        }
-
-        .badge-icon {
-          margin-bottom: 8px;
           display: flex;
           align-items: center;
-          justify-content: center;
         }
 
-        .badge-icon ha-icon {
-          width: 40px;
-          height: 40px;
-          color: ${color};
-        }
-
-        .badge-content {
-          font-size: 13px;
-          font-weight: 500;
-          color: var(--primary-text-color);
-          text-align: center;
-          line-height: 1.3;
+        .badge {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 12px 16px;
           white-space: nowrap;
         }
 
-        .badge-title {
-          font-size: 11px;
-          color: var(--secondary-text-color);
-          margin-top: 4px;
-          text-align: center;
+        .badge ha-icon {
+          flex-shrink: 0;
+          width: 24px;
+          height: 24px;
+          color: ${color};
+        }
+
+        .badge-text {
+          font-size: 14px;
+          font-weight: 500;
+          color: var(--primary-text-color);
+          line-height: 1;
         }
 
         @media (max-width: 600px) {
-          .badge-container {
-            padding: 12px;
+          .badge {
+            padding: 10px 12px;
+            gap: 6px;
           }
 
-          .badge-icon ha-icon {
-            width: 32px;
-            height: 32px;
+          .badge ha-icon {
+            width: 20px;
+            height: 20px;
           }
 
-          .badge-content {
-            font-size: 12px;
+          .badge-text {
+            font-size: 13px;
           }
         }
       </style>
 
       <ha-card>
-        <div class="badge-container">
-          <div class="badge-icon">
-            <ha-icon icon="${icon}"></ha-icon>
-          </div>
-          <div class="badge-content">${alertCount}/${totalDevices}</div>
-          <div class="badge-title">${this._config.title}</div>
+        <div class="badge">
+          <ha-icon icon="${icon}"></ha-icon>
+          <span class="badge-text">${badgeText}</span>
         </div>
       </ha-card>
     `;
