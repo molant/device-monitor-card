@@ -634,7 +634,9 @@ class BatteryDeviceCard extends HTMLElement {
 
     const hiddenCount = shouldCollapse ? devicesToShow.length - collapseLimit : 0;
 
-    const title = `${this._config.title} (${alertDevices.length}/${totalDevices})`;
+    // Count only actual devices, not group headers
+    const alertCount = alertDevices.filter(d => !d.isGroupHeader).length;
+    const title = `${this._config.title} (${alertCount}/${totalDevices})`;
 
     this.shadowRoot.innerHTML = `
       <style>
