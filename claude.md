@@ -104,18 +104,16 @@ When `binary_sensor.*_battery_low` exists, exclude corresponding `sensor.*_batte
 ## File Structure
 
 ```
-battery-monitor-card/
+device-monitor-card/
 ├── dist/
-│   └── battery-monitor-card.js   # HACS distribution file (matches repo name)
-├── www/
-│   └── device-monitor-card.js    # Development source file
+│   └── device-monitor-card.js    # Main card implementation (matches repo name)
 ├── README.md                     # User documentation
 ├── package.json                  # npm metadata
 ├── hacs.json                     # HACS integration config
 └── claude.md                     # This file
 ```
 
-**Note:** The filename in `dist/` matches the repository name (`battery-monitor-card.js`) as required by HACS, while the custom element name remains `device-monitor-card` as defined in the JavaScript.
+**Note:** The repository name, filename, and custom element name all use `device-monitor-card` for consistency.
 
 ## Configuration Options
 
@@ -222,7 +220,7 @@ See README Roadmap section for community-requested features:
 To be included in HACS as a default repository:
 
 1. **File Structure**: Plugin file must be in `dist/` directory or repository root
-2. **File Naming**: Must match repository name (`battery-monitor-card.js`)
+2. **File Naming**: Must match repository name (`device-monitor-card.js`)
 3. **GitHub Releases**: At least one release required (v1.0.0+)
 4. **Repository Topics**: Add topics like `hacs`, `home-assistant`, `lovelace-card`
 5. **Description**: Clear GitHub repository description
@@ -241,19 +239,13 @@ To be included in HACS as a default repository:
 
 Users can add this repository manually in HACS before it becomes a default:
 - Go to HACS → Integrations → ⋮ → Custom repositories
-- Add URL: `https://github.com/molant/battery-monitor-card`
+- Add URL: `https://github.com/molant/device-monitor-card`
 - Category: Plugin
 
 ## Development Notes
 
 ### No Build Process
-Pure JavaScript implementation - no compilation, bundling, or transpilation needed.
-
-### File Synchronization
-When making changes:
-1. Edit `www/device-monitor-card.js` (development source)
-2. Copy to `dist/battery-monitor-card.js` before committing
-3. Both files should have identical content
+Pure JavaScript implementation - no compilation, bundling, or transpilation needed. Edit `dist/device-monitor-card.js` directly.
 
 ### Browser Compatibility
 Fully supported in all modern browsers (Chrome, Firefox, Safari, Edge) and mobile browsers.
@@ -273,7 +265,7 @@ Uses Shadow DOM for style encapsulation. All styles are scoped to the card.
 
 ## Repository Information
 
-- **Repository**: https://github.com/molant/battery-monitor-card
+- **Repository**: https://github.com/molant/device-monitor-card
 - **License**: MIT
 - **HACS Integration**: Yes (first release v1.0.0)
 - **Minimum Home Assistant**: 2024.1.0
