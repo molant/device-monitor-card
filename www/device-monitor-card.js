@@ -3,7 +3,7 @@
  * A custom Home Assistant Lovelace card that monitors battery levels,
  * contact sensors (doors/windows), and lights with device names from the device registry.
  *
- * @version 2.0.0
+ * @version 1.0.0
  * @author Custom Card
  * @license MIT
  */
@@ -186,7 +186,7 @@ const ENTITY_TYPES = {
   }
 };
 
-class BatteryDeviceCard extends HTMLElement {
+class DeviceMonitorCard extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
@@ -999,14 +999,14 @@ class BatteryDeviceCard extends HTMLElement {
    * Get configuration description for the card editor
    */
   static getConfigElement() {
-    return document.createElement('battery-device-card-editor');
+    return document.createElement('device-monitor-card-editor');
   }
 }
 
 /**
  * Card Editor
  */
-class BatteryDeviceCardEditor extends HTMLElement {
+class DeviceMonitorCardEditor extends HTMLElement {
   constructor() {
     super();
     this._debounceTimeout = null;
@@ -1315,21 +1315,21 @@ class BatteryDeviceCardEditor extends HTMLElement {
 }
 
 // Register the custom card
-customElements.define('battery-device-card', BatteryDeviceCard);
-customElements.define('battery-device-card-editor', BatteryDeviceCardEditor);
+customElements.define('device-monitor-card', DeviceMonitorCard);
+customElements.define('device-monitor-card-editor', DeviceMonitorCardEditor);
 
 // Register card with Home Assistant
 window.customCards = window.customCards || [];
 window.customCards.push({
-  type: 'battery-device-card',
+  type: 'device-monitor-card',
   name: 'Device Monitor Card',
   description: 'Monitor batteries, contact sensors (doors/windows), and lights with alerts and grouping',
   preview: false,
-  documentationURL: 'https://github.com/your-repo/battery-device-card',
+  documentationURL: 'https://github.com/molant/battery-monitor-card',
 });
 
 console.info(
-  '%c DEVICE-MONITOR-CARD %c 2.0.0 ',
+  '%c DEVICE-MONITOR-CARD %c 1.0.0 ',
   'color: white; background: #039be5; font-weight: 700;',
   'color: #039be5; background: white; font-weight: 700;'
 );

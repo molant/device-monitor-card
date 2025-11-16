@@ -1,10 +1,10 @@
 {
   "name": "battery-device-card",
-  "version": "2.0.0",
+  "version": "1.0.0",
   "description": "A versatile Home Assistant Lovelace card that monitors batteries, contact sensors (doors/windows), and lights with smart grouping and sorting",
-  "main": "www/battery-device-card.js",
+  "main": "www/device-monitor-card.js",
   "scripts": {
-    "test": "node --check www/battery-device-card.js"
+    "test": "node --check www/device-monitor-card.js"
   },
   "repository": {
     "type": "git",

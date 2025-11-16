@@ -51,20 +51,20 @@ A versatile Home Assistant Lovelace card that monitors multiple types of devices
 
 ### Manual Installation
 
-1. Download `battery-device-card.js` from this repository
+1. Download `device-monitor-card.js` from this repository
 2. Copy it to your `config/www/` directory in Home Assistant
 3. Add the following to your Lovelace resources:
 
    **Via UI:**
    - Go to Settings → Dashboards → Resources
    - Click "Add Resource"
-   - URL: `/local/battery-device-card.js`
+   - URL: `/local/device-monitor-card.js`
    - Resource type: `JavaScript Module`
 
    **Via YAML:**
    ```yaml
    resources:
-     - url: /local/battery-device-card.js
+     - url: /local/device-monitor-card.js
        type: module
    ```
 
@@ -92,7 +92,7 @@ The card includes a visual configuration editor in Home Assistant:
 
 #### Monitor Low Batteries
 ```yaml
-type: custom:battery-device-card
+type: custom:device-monitor-card
 entity_type: battery
 filter: alert
 battery_threshold: 20
@@ -100,7 +100,7 @@ battery_threshold: 20
 
 #### Monitor Open Doors & Windows
 ```yaml
-type: custom:battery-device-card
+type: custom:device-monitor-card
 entity_type: contact
 filter: alert
 title: Open Doors & Windows
@@ -108,7 +108,7 @@ title: Open Doors & Windows
 
 #### Monitor Lights Left On
 ```yaml
-type: custom:battery-device-card
+type: custom:device-monitor-card
 entity_type: light
 filter: alert
 title: Lights On
@@ -116,7 +116,7 @@ title: Lights On
 
 #### Lights with Toggle Switch
 ```yaml
-type: custom:battery-device-card
+type: custom:device-monitor-card
 entity_type: light
 filter: alert
 show_toggle: true
@@ -127,7 +127,7 @@ title: Lights On
 
 #### Batteries Grouped by Area
 ```yaml
-type: custom:battery-device-card
+type: custom:device-monitor-card
 entity_type: battery
 filter: all
 title: All Batteries
@@ -137,7 +137,7 @@ sort_by: state
 
 #### Open Doors by Floor
 ```yaml
-type: custom:battery-device-card
+type: custom:device-monitor-card
 entity_type: contact
 filter: alert
 title: Open Doors by Floor
@@ -146,7 +146,7 @@ group_by: floor
 
 #### All Lights Sorted by Name
 ```yaml
-type: custom:battery-device-card
+type: custom:device-monitor-card
 entity_type: light
 filter: all
 title: All Lights
@@ -251,20 +251,20 @@ views:
   - title: Home
     cards:
       # Low batteries
-      - type: custom:battery-device-card
+      - type: custom:device-monitor-card
         entity_type: battery
         filter: alert
         battery_threshold: 25
 
       # Open doors and windows by floor
-      - type: custom:battery-device-card
+      - type: custom:device-monitor-card
         entity_type: contact
         filter: alert
         group_by: floor
         title: Security Status
 
       # Lights left on
-      - type: custom:battery-device-card
+      - type: custom:device-monitor-card
         entity_type: light
         filter: alert
         title: Active Lights
@@ -273,7 +273,7 @@ views:
 ### All Batteries with Organization
 
 ```yaml
-type: custom:battery-device-card
+type: custom:device-monitor-card
 entity_type: battery
 filter: all
 title: Battery Inventory
@@ -287,17 +287,17 @@ collapse: 15
 ```yaml
 type: vertical-stack
 cards:
-  - type: custom:battery-device-card
+  - type: custom:device-monitor-card
     entity_type: battery
     filter: alert
     collapse: 3
 
-  - type: custom:battery-device-card
+  - type: custom:device-monitor-card
     entity_type: contact
     filter: alert
     collapse: 3
 
-  - type: custom:battery-device-card
+  - type: custom:device-monitor-card
     entity_type: light
     filter: alert
     collapse: 3
@@ -372,7 +372,7 @@ The card includes built-in debug logging to help troubleshoot issues.
 Add `debug: true` to your card configuration:
 
 ```yaml
-type: custom:battery-device-card
+type: custom:device-monitor-card
 entity_type: battery
 debug: true
 ```
@@ -412,7 +412,7 @@ Then refresh your browser and open the developer console (F12). You'll see detai
 ```
 battery-device-card/
 ├── www/
-│   └── battery-device-card.js   # Main card implementation
+│   └── device-monitor-card.js   # Main card implementation
 ├── test/
 │   └── test.html                # Test page with mocked hass
 └── README.md                    # Documentation
@@ -438,62 +438,23 @@ MIT License - see LICENSE file for details
 
 ## Changelog
 
-### v2.0.0 (2024-11-16)
+### v1.0.0 (2025-11-16)
 
-**BREAKING CHANGES:**
-- Configuration structure has changed - see migration guide below
+Initial release of Device Monitor Card!
 
-**New Features:**
-- **Multi-Entity Support**: Now monitors batteries, contact sensors (doors/windows), and lights
-- **Grouping**: Group devices by area or floor
-- **Sorting**: Sort by state, name, or last changed time
-- **Entity Type Strategy**: Extensible architecture for different entity types
-- **Smart Icons**: Type-specific icons (door, window, garage, lightbulb, battery)
-- **Empty States**: Custom messages for each entity type
-
-**Configuration Changes:**
-- `all_devices` → `filter: 'all'` (use `filter: 'alert'` for old default behavior)
-- Added `entity_type` (required): 'battery', 'contact', or 'light'
-- Added `group_by`: null, 'area', or 'floor'
-- Added `sort_by`: 'state', 'name', or 'last_changed'
-- `battery_threshold` only applies when `entity_type: 'battery'`
-
-**Migration Guide:**
-
-Old config:
-```yaml
-type: custom:battery-device-card
-battery_threshold: 20
-all_devices: false
-```
-
-New config:
-```yaml
-type: custom:battery-device-card
-entity_type: battery
-filter: alert
-battery_threshold: 20
-```
-
-**Previous Versions:**
-
-### v1.2.1 (2024-11-15)
-- Fixed visual editor config loading issues
-- Fixed checkbox toggle behavior
-- Improved editor state management
-
-### v1.2.0 (2024-11-15)
-- Added visual card editor
-- Form fields for all configuration options
-
-### v1.1.0 (2024-11-15)
-- Added collapse feature
-- Added all_devices option
-- Device divider between low/normal batteries
-
-### v1.0.0 (2024-11-15)
-- Initial release
-- Battery monitoring only
+**Features:**
+- **Multi-Entity Support**: Monitor batteries, contact sensors (doors/windows), and lights
+- **Smart Device Naming**: Choose between device names or entity friendly names
+- **Automatic Discovery**: Automatically finds entities based on device class and domain
+- **Smart Grouping**: Group devices by area or floor for better organization
+- **Flexible Sorting**: Sort by state (battery level/status), name, or last changed time
+- **Interactive Controls**: Toggle lights on/off directly from the card (optional)
+- **Custom Icons**: Respects user-configured entity icons
+- **Smart Filtering**: For batteries, excludes duplicate sensors when binary_sensor.*_battery_low exists
+- **Color-Coded Icons**: Dynamic icons and colors based on entity state
+- **Clickable Devices**: Click any device to open its device page in Home Assistant
+- **Responsive Design**: Mobile-friendly layout that matches Home Assistant's style
+- **Visual Editor**: Full visual configuration editor in Home Assistant UI
 
 ## Credits
 
