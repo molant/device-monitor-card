@@ -24,6 +24,8 @@ A versatile Home Assistant Lovelace card and badge that monitors multiple types 
 - **Empty State**: Displays a friendly message when all devices are in good state
 
 ### Badge Features
+- **Native HA Badge**: Uses Home Assistant's `<ha-badge>` component for perfect theming
+- **Auto-Theming**: Automatically adapts to HA theme changes (fonts, colors, spacing)
 - **Horizontal Format**: Displays as [Icon] Text (5/30) - icon on left, count on right
 - **Compact Display**: Perfect for the badge area at top of views or anywhere on dashboard
 - **Same Entity Types**: Supports batteries, contact sensors, and lights
@@ -236,11 +238,13 @@ For each entity, the card:
 
 ## Device Monitor Badge
 
-The Device Monitor Badge provides a compact horizontal badge to display device alert counts. It shows an icon and text in the format: [🔋] "TITLE (alert_count/total_devices)"
+The Device Monitor Badge provides a compact horizontal badge to display device alert counts. It uses Home Assistant's native `<ha-badge>` component, ensuring perfect integration with your theme.
 
 The badge displays horizontally with:
 - Color-coded icon on the left
 - Alert count text on the right: "Low Battery (3/15)"
+- Automatic font and spacing from your HA theme
+- Format: [🔋] "TITLE (alert_count/total_devices)"
 
 ### Badge Configuration
 
