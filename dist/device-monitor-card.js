@@ -1529,12 +1529,10 @@ class DeviceMonitorBadge extends HTMLElement {
   render() {
     if (!this._hass) {
       this.shadowRoot.innerHTML = `
-        <ha-card>
-          <div class="badge">
-            <ha-icon icon="mdi:battery"></ha-icon>
-            <span>...</span>
-          </div>
-        </ha-card>
+        <div class="badge">
+          <ha-icon icon="mdi:battery"></ha-icon>
+          <span>...</span>
+        </div>
       `;
       return;
     }
@@ -1549,13 +1547,7 @@ class DeviceMonitorBadge extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>
         :host {
-          display: inline-block;
-        }
-
-        ha-card {
-          padding: 0;
-          height: 100%;
-          display: flex;
+          display: inline-flex;
           align-items: center;
         }
 
@@ -1563,8 +1555,12 @@ class DeviceMonitorBadge extends HTMLElement {
           display: flex;
           align-items: center;
           gap: 8px;
-          padding: 12px 16px;
+          padding: 8px 12px;
+          background: var(--ha-card-background, var(--card-background-color, white));
+          border-radius: 18px;
+          box-shadow: var(--ha-card-box-shadow, 0 2px 4px rgba(0,0,0,0.1));
           white-space: nowrap;
+          cursor: default;
         }
 
         .badge ha-icon {
@@ -1578,12 +1574,12 @@ class DeviceMonitorBadge extends HTMLElement {
           font-size: 14px;
           font-weight: 500;
           color: var(--primary-text-color);
-          line-height: 1;
+          line-height: 1.2;
         }
 
         @media (max-width: 600px) {
           .badge {
-            padding: 10px 12px;
+            padding: 6px 10px;
             gap: 6px;
           }
 
@@ -1598,12 +1594,10 @@ class DeviceMonitorBadge extends HTMLElement {
         }
       </style>
 
-      <ha-card>
-        <div class="badge">
-          <ha-icon icon="${icon}"></ha-icon>
-          <span class="badge-text">${badgeText}</span>
-        </div>
-      </ha-card>
+      <div class="badge">
+        <ha-icon icon="${icon}"></ha-icon>
+        <span class="badge-text">${badgeText}</span>
+      </div>
     `;
   }
 

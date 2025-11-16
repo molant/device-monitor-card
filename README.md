@@ -262,51 +262,81 @@ battery_threshold: 20
 | `battery_threshold` | number | `20` | (Battery only) Battery percentage threshold for low battery alerts |
 | `debug` | boolean | `false` | Enable debug logging in browser console |
 
-### Badge Examples
+### Quick Start: Add Badges to Top of View
 
-#### Low Battery Badge
-```yaml
-type: custom:device-monitor-badge
-entity_type: battery
-title: Low Battery
-battery_threshold: 25
-```
-**Display:** [🔋] Low Battery (3/15)
-- Shows battery icon (red if alerts, green if OK) + text
+To add badges to the **badges section at the very top** of your view (above all cards):
 
-#### Open Doors Badge
-```yaml
-type: custom:device-monitor-badge
-entity_type: contact
-title: Open Doors
-```
-**Display:** [🚪] Open Doors (0/8)
-- Shows door icon (yellow if open, green if closed) + text
+1. **Edit your dashboard** in YAML mode
+2. **Add to the `badges:` array** under your view:
 
-#### Lights On Badge
 ```yaml
-type: custom:device-monitor-badge
-entity_type: light
-title: Lights On
+views:
+  - title: Home
+    badges:
+      # Battery monitoring badge
+      - type: custom:device-monitor-badge
+        entity_type: battery
+        title: Low Battery
+        battery_threshold: 25
+
+      # Door/window monitoring badge
+      - type: custom:device-monitor-badge
+        entity_type: contact
+        title: Open Doors
+
+      # Lights monitoring badge
+      - type: custom:device-monitor-badge
+        entity_type: light
+        title: Lights On
+
+    cards:
+      # Your regular cards here
 ```
-**Display:** [💡] Lights On (2/12)
-- Shows light icon (yellow if on, gray if off) + text
+
+**Result:** Badges appear horizontally at the top:
+- [🔋] Low Battery (3/15) | [🚪] Open Doors (0/8) | [💡] Lights On (2/12)
+
+### Badge Display Format
+
+Each badge shows:
+- **Icon**: Color-coded (green=OK, red=battery alerts, yellow=doors/lights)
+- **Title and Count**: "Title (alerts/total)"
+  - Battery: Shows devices below threshold / total battery devices
+  - Contact: Shows open doors/windows / total contact sensors
+  - Lights: Shows lights on / total lights
 
 ### Adding the Badge
 
-The Device Monitor Badge can be added in two ways:
+**Method 1: YAML (Recommended for Badges Section)**
 
-**Option 1: As a Badge (Top of View)**
-1. Click "Add Badge" in the badges section at the top of your view
-2. Search for "Device Monitor Badge"
-3. Configure the entity type and title
+Add to the `badges:` section at the top of your view:
 
-**Option 2: As a Card (Anywhere on Dashboard)**
+```yaml
+views:
+  - title: Home
+    badges:
+      - type: custom:device-monitor-badge
+        entity_type: battery
+        title: Low Battery
+        battery_threshold: 20
+      - type: custom:device-monitor-badge
+        entity_type: contact
+        title: Open Doors
+      - type: custom:device-monitor-badge
+        entity_type: light
+        title: Lights On
+```
+
+This will display the badges **horizontally at the very top** of your view, above all cards.
+
+**Method 2: Visual Editor (For Cards Section)**
+
 1. Click "Add Card" in your dashboard
 2. Search for "Device Monitor Badge"
 3. Configure using the visual editor
+4. Badge can be placed anywhere in the cards grid
 
-**Note:** If the badge doesn't appear in the "Add Badge" picker, add it via "Add Card" instead - it will still display in a compact badge format suitable for any location on your dashboard.
+**Note:** To get badges in the badges section at the top, use YAML Method 1. The "Add Badge" picker may not show custom badges, so YAML configuration is the most reliable method.
 
 ### Badge Visual Editor
 
@@ -404,7 +434,30 @@ cards:
     collapse: 3
 ```
 
-### Compact Badge View
+### Badges at Top of View
+
+```yaml
+views:
+  - title: Home
+    badges:
+      - type: custom:device-monitor-badge
+        entity_type: battery
+        title: Low Battery
+        battery_threshold: 20
+      - type: custom:device-monitor-badge
+        entity_type: contact
+        title: Open Doors
+      - type: custom:device-monitor-badge
+        entity_type: light
+        title: Lights On
+    cards:
+      - type: entities
+        entities:
+          - sun.sun
+```
+**Result:** Three badges appear horizontally at the very top of the view, above all cards
+
+### Badges in Card Grid (Alternative)
 
 ```yaml
 type: horizontal-stack
@@ -422,7 +475,7 @@ cards:
     entity_type: light
     title: Lights On
 ```
-**Display:** Three badges in a row showing alert counts for each device type
+**Result:** Three badges in a horizontal row within the cards grid
 
 ## Styling
 
