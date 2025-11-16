@@ -775,6 +775,15 @@ class BatteryDeviceCardEditor extends HTMLElement {
       </div>
     `;
 
+    // Helper function to handle config updates
+    const updateConfig = (configUpdater, debounce = false) => {
+      return (ev) => {
+        const newConfig = { ...this._config };
+        configUpdater(newConfig, ev.target);
+        this.configChanged(newConfig, !debounce); // invert debounce flag for immediate parameter
+      };
+    };
+
     // Add event listeners using oninput/onchange to avoid multiple listeners
     const titleInput = this.querySelector('#title');
     const thresholdInput = this.querySelector('#battery_threshold');
@@ -782,44 +791,31 @@ class BatteryDeviceCardEditor extends HTMLElement {
     const allDevicesInput = this.querySelector('#all_devices');
     const debugInput = this.querySelector('#debug');
 
-    // Text input - debounced
-    titleInput.oninput = (ev) => {
-      const newConfig = { ...this._config };
-      newConfig.title = ev.target.value;
-      this.configChanged(newConfig, false); // debounced
-    };
+    // Text and number inputs - debounced to prevent focus loss
+    titleInput.oninput = updateConfig((config, target) => {
+      config.title = target.value;
+    }, true);
 
-    // Number inputs - immediate
-    thresholdInput.oninput = (ev) => {
-      const newConfig = { ...this._config };
-      const value = Number(ev.target.value);
-      newConfig.battery_threshold = value;
-      this.configChanged(newConfig, true); // immediate
-    };
+    thresholdInput.oninput = updateConfig((config, target) => {
+      config.battery_threshold = Number(target.value);
+    }, true);
 
-    collapseInput.oninput = (ev) => {
-      const newConfig = { ...this._config };
-      const value = ev.target.value;
-      if (value === '') {
-        delete newConfig.collapse;
+    collapseInput.oninput = updateConfig((config, target) => {
+      if (target.value === '') {
+        delete config.collapse;
       } else {
-        newConfig.collapse = Number(value);
+        config.collapse = Number(target.value);
       }
-      this.configChanged(newConfig, true); // immediate
-    };
+    }, true);
 
-    // Checkboxes - immediate
-    allDevicesInput.onchange = (ev) => {
-      const newConfig = { ...this._config };
-      newConfig.all_devices = ev.target.checked;
-      this.configChanged(newConfig, true); // immediate
-    };
+    // Checkboxes - immediate updates for instant feedback
+    allDevicesInput.onchange = updateConfig((config, target) => {
+      config.all_devices = target.checked;
+    }, false);
 
-    debugInput.onchange = (ev) => {
-      const newConfig = { ...this._config };
-      newConfig.debug = ev.target.checked;
-      this.configChanged(newConfig, true); // immediate
-    };
+    debugInput.onchange = updateConfig((config, target) => {
+      config.debug = target.checked;
+    }, false);
   }
 }
 
