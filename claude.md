@@ -107,8 +107,6 @@ When `binary_sensor.*_battery_low` exists, exclude corresponding `sensor.*_batte
 battery-monitor-card/
 ├── www/
 │   └── device-monitor-card.js    # Main implementation (Web Component)
-├── test/
-│   └── test.html                 # Test page with mocked hass object
 ├── README.md                     # User documentation
 ├── package.json                  # npm metadata
 ├── hacs.json                     # HACS integration config
@@ -172,12 +170,13 @@ Modify the `detect()` method in the relevant `ENTITY_TYPES` entry. Be careful no
 
 ## Testing
 
-- Use `test/test.html` for local testing with mocked hass object
-- Test all three entity types
+Test directly in Home Assistant:
+- Test all three entity types (battery, contact, light)
 - Test grouping combinations (none, area, floor)
-- Test sorting options
+- Test sorting options (state, name, last_changed)
 - Test with custom icons
 - Test toggle switches for lights
+- Test filter modes (alert vs all)
 
 ## Debugging
 

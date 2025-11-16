@@ -413,9 +413,10 @@ Then refresh your browser and open the developer console (F12). You'll see detai
 battery-device-card/
 ├── www/
 │   └── device-monitor-card.js   # Main card implementation
-├── test/
-│   └── test.html                # Test page with mocked hass
-└── README.md                    # Documentation
+├── README.md                    # Documentation
+├── claude.md                    # Project context for Claude Code
+├── package.json                 # npm metadata
+└── hacs.json                    # HACS integration config
 ```
 
 ### Building from Source
