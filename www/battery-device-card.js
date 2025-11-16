@@ -225,6 +225,7 @@ class BatteryDeviceCard extends HTMLElement {
       group_by: config.group_by || null,
       sort_by: config.sort_by || 'state',
       show_toggle: config.show_toggle || false,
+      name_source: config.name_source || 'device',
       ...config
     };
 
@@ -304,6 +305,9 @@ class BatteryDeviceCard extends HTMLElement {
         return; // Skip if we can't get device name
       }
 
+      // Get entity friendly name
+      const entityName = attributes.friendly_name || entityId;
+
       // Get area information for grouping
       const areaId = this._getAreaId(deviceId);
       const areaName = areaId ? this._getAreaName(areaId) : null;
@@ -321,6 +325,7 @@ class BatteryDeviceCard extends HTMLElement {
         devices[deviceId] = {
           deviceId,
           deviceName,
+          entityName,
           entityId,
           stateInfo,
           lastChanged: entity.last_changed,
@@ -412,13 +417,18 @@ class BatteryDeviceCard extends HTMLElement {
    */
   _sortDevices(devices) {
     const sortBy = this._config.sort_by || 'state';
+    const useEntityName = this._config.name_source === 'entity';
 
     // Don't sort group headers
     const headers = devices.filter(d => d.isGroupHeader);
     const devicesToSort = devices.filter(d => !d.isGroupHeader);
 
     if (sortBy === 'name') {
-      devicesToSort.sort((a, b) => a.deviceName.localeCompare(b.deviceName));
+      devicesToSort.sort((a, b) => {
+        const aName = useEntityName ? a.entityName : a.deviceName;
+        const bName = useEntityName ? b.entityName : b.deviceName;
+        return aName.localeCompare(bName);
+      });
     } else if (sortBy === 'last_changed') {
       devicesToSort.sort((a, b) => new Date(b.lastChanged) - new Date(a.lastChanged));
     } else { // 'state' is default
@@ -431,7 +441,9 @@ class BatteryDeviceCard extends HTMLElement {
         if (aNum !== null && bNum !== null) {
           return aNum - bNum; // Lowest first
         }
-        return a.deviceName.localeCompare(b.deviceName);
+        const aName = useEntityName ? a.entityName : a.deviceName;
+        const bName = useEntityName ? b.entityName : b.deviceName;
+        return aName.localeCompare(bName);
       });
     }
 
@@ -587,6 +599,9 @@ class BatteryDeviceCard extends HTMLElement {
     const customIcon = device.attributes?.icon;
     const icon = customIcon || strategy.getIcon(stateInfo);
 
+    // Choose name based on config
+    const displayName = this._config.name_source === 'entity' ? device.entityName : device.deviceName;
+
     return `
       <div class="device-item" data-device-id="${device.deviceId}" data-entity-id="${device.entityId}">
         <div class="device-icon">
@@ -596,7 +611,7 @@ class BatteryDeviceCard extends HTMLElement {
           ></ha-icon>
         </div>
         <div class="device-info">
-          <div class="device-name">${device.deviceName}</div>
+          <div class="device-name">${displayName}</div>
           <div class="device-secondary">
             Last changed: ${this._formatLastChanged(device.lastChanged)}
           </div>
@@ -945,7 +960,8 @@ class BatteryDeviceCard extends HTMLElement {
       collapse: undefined,
       group_by: null,
       sort_by: 'state',
-      show_toggle: false
+      show_toggle: false,
+      name_source: 'device'
     };
   }
 
@@ -1140,6 +1156,17 @@ class BatteryDeviceCardEditor extends HTMLElement {
 
         <div class="option">
           <div class="label-container">
+            <label>Name Source</label>
+            <div class="description">Use device name or entity friendly name</div>
+          </div>
+          <select id="name_source">
+            <option value="device" ${this._config.name_source === 'device' || !this._config.name_source ? 'selected' : ''}>Device Name</option>
+            <option value="entity" ${this._config.name_source === 'entity' ? 'selected' : ''}>Entity Name</option>
+          </select>
+        </div>
+
+        <div class="option">
+          <div class="label-container">
             <label>Collapse</label>
             <div class="description">Limit displayed devices (leave empty for no limit)</div>
           </div>
@@ -1200,6 +1227,7 @@ class BatteryDeviceCardEditor extends HTMLElement {
     const thresholdInput = this.querySelector('#battery_threshold');
     const groupByInput = this.querySelector('#group_by');
     const sortByInput = this.querySelector('#sort_by');
+    const nameSourceInput = this.querySelector('#name_source');
     const collapseInput = this.querySelector('#collapse');
     const showToggleInput = this.querySelector('#show_toggle');
     const debugInput = this.querySelector('#debug');
@@ -1238,6 +1266,10 @@ class BatteryDeviceCardEditor extends HTMLElement {
 
     sortByInput.onchange = updateConfig((config, target) => {
       config.sort_by = target.value;
+    }, false);
+
+    nameSourceInput.onchange = updateConfig((config, target) => {
+      config.name_source = target.value;
     }, false);
 
     if (showToggleInput) {
