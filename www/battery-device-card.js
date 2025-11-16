@@ -419,22 +419,59 @@ class BatteryDeviceCard extends HTMLElement {
     const sortBy = this._config.sort_by || 'state';
     const useEntityName = this._config.name_source === 'entity';
 
-    // Don't sort group headers
-    const headers = devices.filter(d => d.isGroupHeader);
-    const devicesToSort = devices.filter(d => !d.isGroupHeader);
+    // Check if we have grouped devices (with headers)
+    const hasGroupHeaders = devices.some(d => d.isGroupHeader);
+
+    if (!hasGroupHeaders) {
+      // Simple case: no grouping, just sort all devices
+      return this._applySorting(devices, sortBy, useEntityName);
+    }
+
+    // Complex case: sort devices within each group while keeping headers in place
+    const result = [];
+    let currentGroup = [];
+
+    devices.forEach((item, index) => {
+      if (item.isGroupHeader) {
+        // Sort and add previous group if it exists
+        if (currentGroup.length > 0) {
+          result.push(...this._applySorting(currentGroup, sortBy, useEntityName));
+          currentGroup = [];
+        }
+        // Add the header
+        result.push(item);
+      } else {
+        // Collect devices in current group
+        currentGroup.push(item);
+      }
+    });
+
+    // Sort and add the last group
+    if (currentGroup.length > 0) {
+      result.push(...this._applySorting(currentGroup, sortBy, useEntityName));
+    }
+
+    return result;
+  }
+
+  /**
+   * Apply sorting to a list of devices
+   */
+  _applySorting(devices, sortBy, useEntityName) {
+    const sorted = [...devices];
 
     if (sortBy === 'name') {
-      devicesToSort.sort((a, b) => {
+      sorted.sort((a, b) => {
         const aName = useEntityName ? a.entityName : a.deviceName;
         const bName = useEntityName ? b.entityName : b.deviceName;
         return aName.localeCompare(bName);
       });
     } else if (sortBy === 'last_changed') {
-      devicesToSort.sort((a, b) => new Date(b.lastChanged) - new Date(a.lastChanged));
+      sorted.sort((a, b) => new Date(b.lastChanged) - new Date(a.lastChanged));
     } else { // 'state' is default
       // For batteries, sort by level (lowest first)
       // For others, sort by name
-      devicesToSort.sort((a, b) => {
+      sorted.sort((a, b) => {
         const aNum = a.stateInfo.numericValue;
         const bNum = b.stateInfo.numericValue;
 
@@ -447,14 +484,7 @@ class BatteryDeviceCard extends HTMLElement {
       });
     }
 
-    // If we have group headers, we need to re-interleave them
-    if (headers.length > 0) {
-      // This is complex - for now just return sorted devices
-      // In practice, grouping maintains its own ordering
-      return devices;
-    }
-
-    return devicesToSort;
+    return sorted;
   }
 
   /**
