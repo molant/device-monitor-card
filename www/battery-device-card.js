@@ -583,11 +583,15 @@ class BatteryDeviceCard extends HTMLElement {
     const showToggle = this._config.show_toggle && isLight;
     const isOn = device.stateInfo.value === 'on';
 
+    // Use custom icon if set, otherwise use strategy icon
+    const customIcon = device.attributes?.icon;
+    const icon = customIcon || strategy.getIcon(stateInfo);
+
     return `
       <div class="device-item" data-device-id="${device.deviceId}" data-entity-id="${device.entityId}">
         <div class="device-icon">
           <ha-icon
-            icon="${strategy.getIcon(stateInfo)}"
+            icon="${icon}"
             style="color: ${strategy.getColor(stateInfo)};"
           ></ha-icon>
         </div>
