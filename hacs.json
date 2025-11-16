@@ -1,5 +1,5 @@
 {
-  "name": "Battery Device Card",
+  "name": "Device Monitor Card",
   "render_readme": true,
   "filename": "battery-device-card.js",
   "content_in_root": false,

@@ -5,10 +5,12 @@ A versatile Home Assistant Lovelace card that monitors multiple types of devices
 ## Features
 
 - **Multiple Entity Types**: Monitor batteries, contact sensors, or lights in a single card
-- **Device Names**: Shows actual device names from the device registry, not entity friendly names
+- **Smart Device Naming**: Choose between device names or entity friendly names
 - **Automatic Discovery**: Automatically finds entities based on device class and domain
 - **Smart Grouping**: Group devices by area or floor for better organization
 - **Flexible Sorting**: Sort by state (battery level/status), name, or last changed time
+- **Interactive Controls**: Toggle lights on/off directly from the card (optional)
+- **Custom Icons**: Respects user-configured entity icons
 - **Smart Filtering**: For batteries, excludes duplicate sensors when binary_sensor.*_battery_low exists
 - **Color-Coded Icons**: Dynamic icons and colors based on entity state
 - **Clickable Devices**: Click any device to open its device page in Home Assistant
@@ -33,7 +35,7 @@ A versatile Home Assistant Lovelace card that monitors multiple types of devices
 ### Lights
 - Monitors light states
 - Shows which lights are currently on
-- Simple on/off state tracking
+- Optional toggle switch to turn lights on/off directly from the card
 - Works with all entities in the light.* domain
 
 ## Installation
@@ -43,7 +45,7 @@ A versatile Home Assistant Lovelace card that monitors multiple types of devices
 1. Open HACS in your Home Assistant instance
 2. Click on "Frontend"
 3. Click the "+" button
-4. Search for "Battery Device Card" (or "Device Monitor Card")
+4. Search for "Device Monitor Card"
 5. Click "Install"
 6. Clear your browser cache and hard refresh (Ctrl+F5 or Cmd+Shift+R)
 
@@ -112,6 +114,15 @@ filter: alert
 title: Lights On
 ```
 
+#### Lights with Toggle Switch
+```yaml
+type: custom:battery-device-card
+entity_type: light
+filter: alert
+show_toggle: true
+title: Lights On
+```
+
 ### Advanced Configuration Examples
 
 #### Batteries Grouped by Area
@@ -153,6 +164,8 @@ collapse: 10
 | `title` | string | Auto | Card title (auto-generates based on entity_type if not specified) |
 | `group_by` | string | `null` | Group devices: `null`, `'area'`, or `'floor'` |
 | `sort_by` | string | `'state'` | Sort order: `'state'`, `'name'`, or `'last_changed'` |
+| `name_source` | string | `'device'` | Display name: `'device'` (device name) or `'entity'` (entity friendly name) |
+| `show_toggle` | boolean | `false` | (Light only) Show toggle switch to turn lights on/off |
 | `collapse` | number | `undefined` | If set, collapse to show only this many devices with expand button |
 | `debug` | boolean | `false` | Enable debug logging in browser console |
 
