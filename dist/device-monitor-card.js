@@ -1819,11 +1819,49 @@ if (!window.customBadges) {
   window.customBadges = [];
 }
 
+// Create preview element showing 3 example badges
+class DeviceMonitorBadgePreview extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: 'open' });
+  }
+
+  connectedCallback() {
+    this.shadowRoot.innerHTML = `
+      <style>
+        .preview {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          padding: 16px;
+        }
+      </style>
+      <div class="preview">
+        <ha-badge style="--badge-color: var(--label-badge-red, #df4c1e);">
+          <ha-icon slot="icon" icon="mdi:battery-alert"></ha-icon>
+          Low battery (3/5)
+        </ha-badge>
+        <ha-badge style="--badge-color: var(--label-badge-yellow, #f4b400);">
+          <ha-icon slot="icon" icon="mdi:door-open"></ha-icon>
+          Doors/Windows open (4/10)
+        </ha-badge>
+        <ha-badge style="--badge-color: var(--label-badge-yellow, #f4b400);">
+          <ha-icon slot="icon" icon="mdi:lightbulb"></ha-icon>
+          Lights on (2/8)
+        </ha-badge>
+      </div>
+    `;
+  }
+}
+
+customElements.define('device-monitor-badge-preview', DeviceMonitorBadgePreview);
+
 window.customBadges.push({
   type: 'device-monitor-badge',
   name: 'Device Monitor Badge',
   description: 'Low battery (3/5) · Doors/Windows open (4/10) · Lights on (2/8)',
-  preview: false,
+  preview: true,
+  getPreviewElement: () => document.createElement('device-monitor-badge-preview'),
 });
 
 console.info(
