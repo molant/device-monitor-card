@@ -1831,8 +1831,6 @@ class DeviceMonitorBadgePreview extends HTMLElement {
       <style>
         .preview {
           display: flex;
-          flex-direction: column;
-          gap: 8px;
           padding: 16px;
         }
       </style>
@@ -1840,14 +1838,6 @@ class DeviceMonitorBadgePreview extends HTMLElement {
         <ha-badge style="--badge-color: var(--label-badge-red, #df4c1e);">
           <ha-icon slot="icon" icon="mdi:battery-alert"></ha-icon>
           Low battery (3/5)
-        </ha-badge>
-        <ha-badge style="--badge-color: var(--label-badge-yellow, #f4b400);">
-          <ha-icon slot="icon" icon="mdi:door-open"></ha-icon>
-          Doors/Windows open (4/10)
-        </ha-badge>
-        <ha-badge style="--badge-color: var(--label-badge-yellow, #f4b400);">
-          <ha-icon slot="icon" icon="mdi:lightbulb"></ha-icon>
-          Lights on (2/8)
         </ha-badge>
       </div>
     `;
