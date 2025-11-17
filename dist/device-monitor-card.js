@@ -1819,33 +1819,10 @@ if (!window.customBadges) {
   window.customBadges = [];
 }
 
-// Register generic configurable badge
 window.customBadges.push({
   type: 'device-monitor-badge',
   name: 'Device Monitor Badge',
-  description: 'Configurable badge for batteries, doors/windows, or lights',
-  preview: false,
-});
-
-// Register pre-configured badges for better UX in badge picker
-window.customBadges.push({
-  type: 'device-monitor-badge',
-  name: 'Low Battery Badge',
-  description: 'Low battery (3/5)',
-  preview: false,
-});
-
-window.customBadges.push({
-  type: 'device-monitor-badge',
-  name: 'Open Doors Badge',
-  description: 'Doors/Windows open (4/10)',
-  preview: false,
-});
-
-window.customBadges.push({
-  type: 'device-monitor-badge',
-  name: 'Lights On Badge',
-  description: 'Lights on (2/8)',
+  description: 'Low battery (3/5) · Doors/Windows open (4/10) · Lights on (2/8)',
   preview: false,
 });
 
