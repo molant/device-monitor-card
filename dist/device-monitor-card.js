@@ -28,9 +28,9 @@ const ENTITY_TYPES = {
 
       return attributes.device_class === 'battery' ||
         (entityId.includes('battery') &&
-         (entityId.startsWith('sensor.') || entityId.startsWith('binary_sensor.')) &&
-         attributes.device_class !== 'power' &&
-         attributes.device_class !== 'energy');
+          (entityId.startsWith('sensor.') || entityId.startsWith('binary_sensor.')) &&
+          attributes.device_class !== 'power' &&
+          attributes.device_class !== 'energy');
     },
 
     // Evaluate if the entity state is in alert condition
@@ -123,9 +123,9 @@ const ENTITY_TYPES = {
 
       const deviceClass = attributes.device_class;
       return deviceClass === 'door' ||
-             deviceClass === 'window' ||
-             deviceClass === 'garage_door' ||
-             deviceClass === 'opening';
+        deviceClass === 'window' ||
+        deviceClass === 'garage_door' ||
+        deviceClass === 'opening';
     },
 
     // Evaluate if the entity state is in alert condition
@@ -308,6 +308,11 @@ class DeviceMonitorCard extends HTMLElement {
 
       // Check if this entity matches our type
       if (!strategy.detect(entityId, attributes)) {
+        return;
+      }
+
+      // Skip if entity is marked as invisible in Home Assistant UI
+      if (this._isEntityHidden(entityId)) {
         return;
       }
 
@@ -564,6 +569,19 @@ class DeviceMonitorCard extends HTMLElement {
 
     const floor = this._hass.floors[floorId];
     return floor?.name || null;
+  }
+
+  /**
+   * Check if an entity is hidden (marked as invisible in Home Assistant UI)
+   */
+  _isEntityHidden(entityId) {
+    if (!this._hass || !this._hass.entities) {
+      return false;
+    }
+
+    const entityRegistry = this._hass.entities[entityId];
+    // Entity is hidden if hidden property is true (when marked invisible via UI)
+    return entityRegistry?.hidden === true;
   }
 
   /**
@@ -950,28 +968,28 @@ class DeviceMonitorCard extends HTMLElement {
           ` : `
             <div class="device-list">
               ${displayDevices.map((device, index) => {
-                // Handle group headers
-                if (device.isGroupHeader) {
-                  return this._renderGroupHeader(device.groupName);
-                }
+      // Handle group headers
+      if (device.isGroupHeader) {
+        return this._renderGroupHeader(device.groupName);
+      }
 
-                // Add divider between alert and normal devices (only if not grouped)
-                const needsDivider = showAll &&
-                  !this._config.group_by &&
-                  index === alertDevices.length &&
-                  alertDevices.length > 0 &&
-                  normalDevices.length > 0;
+      // Add divider between alert and normal devices (only if not grouped)
+      const needsDivider = showAll &&
+        !this._config.group_by &&
+        index === alertDevices.length &&
+        alertDevices.length > 0 &&
+        normalDevices.length > 0;
 
-                return (needsDivider ? '<div class="divider"></div>' : '') +
-                  this._renderDevice(device);
-              }).join('')}
+      return (needsDivider ? '<div class="divider"></div>' : '') +
+        this._renderDevice(device);
+    }).join('')}
             </div>
             ${shouldCollapse ? `
               <div class="expand-button" id="expand-button">
                 ${this._expanded
-                  ? `Show less<ha-icon icon="mdi:chevron-up"></ha-icon>`
-                  : `Show ${hiddenCount} more<ha-icon icon="mdi:chevron-down"></ha-icon>`
-                }
+          ? `Show less<ha-icon icon="mdi:chevron-up"></ha-icon>`
+          : `Show ${hiddenCount} more<ha-icon icon="mdi:chevron-down"></ha-icon>`
+        }
               </div>
             ` : ''}
           `}
@@ -1425,6 +1443,11 @@ class DeviceMonitorBadge extends HTMLElement {
         return;
       }
 
+      // Skip if entity is marked as invisible in Home Assistant UI
+      if (this._isEntityHidden(entityId)) {
+        return;
+      }
+
       // Debug logging
       if (this._config.debug) {
         console.log(`[Device Monitor Badge] Found ${entityType} entity:`, {
@@ -1493,6 +1516,19 @@ class DeviceMonitorBadge extends HTMLElement {
       alertDevices,
       totalDevices: allDevices.length
     };
+  }
+
+  /**
+   * Check if an entity is hidden (marked as invisible in Home Assistant UI)
+   */
+  _isEntityHidden(entityId) {
+    if (!this._hass || !this._hass.entities) {
+      return false;
+    }
+
+    const entityRegistry = this._hass.entities[entityId];
+    // Entity is hidden if hidden property is true (when marked invisible via UI)
+    return entityRegistry?.hidden === true;
   }
 
   /**
