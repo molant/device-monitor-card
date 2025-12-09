@@ -724,6 +724,14 @@ MIT License - see LICENSE file for details
 
 ## Changelog
 
+### v1.1.0 (2025-12-09)
+
+**Card Features/Fixes:**
+- **Respect visibility**: Entities that are marked as non visible in the UI will not show up in the list
+
+**Badge Features/Fixes:**
+- **Tap actions**: Added tap configuration to badge (navigation, toggle, etc.)
+
 ### v1.0.0 (2025-11-16)
 
 Initial release of Device Monitor Card & Badge!
@@ -766,14 +774,3 @@ If you encounter any issues or have feature requests:
    - Error messages from browser console
    - Entity type being monitored
 
-## Roadmap
-
-Potential future enhancements:
-
-- [x] Badge mode for compact display (v1.0.0)
-- [ ] Custom entity filtering by entity_id pattern
-- [ ] Multiple entity types in one card
-- [ ] Battery history graphs
-- [ ] Export device lists
-- [ ] Notification integration
-- [ ] Custom thresholds per device

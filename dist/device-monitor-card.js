@@ -7,7 +7,7 @@
  * - Device Monitor Card: Full card with device list and details
  * - Device Monitor Badge: Compact badge showing alert count
  *
- * @version 1.0.0
+ * @version 1.1.0
  * @author Custom Card
  * @license MIT
  */
