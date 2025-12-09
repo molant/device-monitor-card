@@ -261,6 +261,96 @@ title: Low Battery
 battery_threshold: 20
 ```
 
+### Tap Actions
+
+The badge supports configurable tap actions. When a tap action is configured, the badge becomes clickable (cursor changes to pointer).
+
+#### Available Actions
+
+**None (default)**
+```yaml
+tap_action:
+  action: none
+```
+
+**Navigate** - Navigate to a different view or page
+```yaml
+tap_action:
+  action: navigate
+  navigation_path: /lovelace/0
+```
+
+**URL** - Open a URL (internal or external)
+```yaml
+tap_action:
+  action: url
+  url_path: https://example.com
+```
+
+**Call Service** - Call a Home Assistant service
+```yaml
+tap_action:
+  action: call-service
+  service: light.turn_on
+  service_data: {}  # Optional service data
+```
+
+**Toggle** - Toggle an entity on/off
+```yaml
+tap_action:
+  action: toggle
+  entity_id: light.living_room
+```
+
+**More Info** - Show the more-info dialog for an entity
+```yaml
+tap_action:
+  action: more-info
+  entity_id: sensor.battery_level
+```
+
+#### Tap Action Examples
+
+**Navigate to a dashboard view:**
+```yaml
+type: custom:device-monitor-badge
+entity_type: battery
+title: Low Battery
+tap_action:
+  action: navigate
+  navigation_path: /lovelace/batteries
+```
+
+**Open device monitor card:**
+```yaml
+type: custom:device-monitor-badge
+entity_type: contact
+title: Open Doors
+tap_action:
+  action: navigate
+  navigation_path: /lovelace/security
+```
+
+**Toggle a light:**
+```yaml
+type: custom:device-monitor-badge
+entity_type: light
+title: Lights On
+tap_action:
+  action: toggle
+  entity_id: light.all_lights
+```
+
+**Show more info for an entity:**
+```yaml
+type: custom:device-monitor-badge
+entity_type: battery
+title: Low Battery
+tap_action:
+  action: more-info
+  entity_id: sensor.house_battery
+```
+
 ### Badge Configuration Options
 
 | Option | Type | Default | Description |
@@ -268,6 +358,7 @@ battery_threshold: 20
 | `entity_type` | string | `'battery'` | Type of entities to monitor: `'battery'`, `'contact'`, or `'light'` |
 | `title` | string | Auto | Badge title (auto-generates based on entity_type if not specified) |
 | `battery_threshold` | number | `20` | (Battery only) Battery percentage threshold for low battery alerts |
+| `tap_action` | object | `{ action: 'none' }` | Action to perform when badge is tapped (see Tap Actions below) |
 | `debug` | boolean | `false` | Enable debug logging in browser console |
 
 ### Quick Start: Add Badges to Top of View
@@ -327,15 +418,24 @@ views:
         entity_type: battery
         title: Low Battery
         battery_threshold: 20
+        tap_action:
+          action: navigate
+          navigation_path: /lovelace/batteries
       - type: custom:device-monitor-badge
         entity_type: contact
         title: Open Doors
+        tap_action:
+          action: navigate
+          navigation_path: /lovelace/security
       - type: custom:device-monitor-badge
         entity_type: light
         title: Lights On
+        tap_action:
+          action: toggle
+          entity_id: light.all_lights
 ```
 
-This will display the badges **horizontally at the very top** of your view, above all cards.
+This will display the badges **horizontally at the very top** of your view, above all cards. Each badge is clickable and will perform the configured tap action.
 
 **Method 2: Visual Editor (For Cards Section)**
 
@@ -352,6 +452,9 @@ The badge includes a visual configuration editor:
 - **Title**: Badge title text
 - **Entity Type**: Choose battery, contact sensors, or lights
 - **Battery Threshold**: (Battery only) Low battery percentage
+- **Tap Action**: Configure what happens when the badge is tapped
+  - **Action Type**: None, Navigate, URL, Call Service, Toggle, or More Info
+  - **Action-specific fields**: Additional fields appear based on selected action type
 
 ### Badge Colors
 
