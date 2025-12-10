@@ -1063,6 +1063,7 @@ class DeviceMonitorCard extends HTMLElement {
       filter: 'alert',
       battery_threshold: 20,
       title: 'Low Battery',
+      badge_visibility: 'always',
       debug: false,
       collapse: undefined,
       group_by: null,
@@ -1286,6 +1287,17 @@ class DeviceMonitorCardEditor extends HTMLElement {
           />
         </div>
 
+        <div class="option">
+          <div class="label-container">
+            <label>Card Visibility</label>
+            <div class="description">When to display the card</div>
+          </div>
+          <select id="badge_visibility">
+            <option value="always" ${(this._config.badge_visibility === 'always' || !this._config.badge_visibility) ? 'selected' : ''}>Always</option>
+            <option value="alert" ${this._config.badge_visibility === 'alert' ? 'selected' : ''}>Only on Alert</option>
+          </select>
+        </div>
+
         <div class="option ${showToggleOption ? '' : 'hidden'}" id="show_toggle_option">
           <div class="label-container">
             <label>Show Toggle</label>
@@ -1336,6 +1348,7 @@ class DeviceMonitorCardEditor extends HTMLElement {
     const sortByInput = this.querySelector('#sort_by');
     const nameSourceInput = this.querySelector('#name_source');
     const collapseInput = this.querySelector('#collapse');
+    const badgeVisibilityInput = this.querySelector('#badge_visibility');
     const showToggleInput = this.querySelector('#show_toggle');
     const debugInput = this.querySelector('#debug');
 
@@ -1378,6 +1391,12 @@ class DeviceMonitorCardEditor extends HTMLElement {
     nameSourceInput.onchange = updateConfig((config, target) => {
       config.name_source = target.value;
     }, false);
+
+    if (badgeVisibilityInput) {
+      badgeVisibilityInput.onchange = updateConfig((config, target) => {
+        config.badge_visibility = target.value;
+      }, false);
+    }
 
     if (showToggleInput) {
       showToggleInput.onchange = updateConfig((config, target) => {
@@ -1426,6 +1445,7 @@ class DeviceMonitorBadge extends HTMLElement {
       entity_type: entityType,
       battery_threshold: config.battery_threshold || 20,
       title: config.title || strategy.defaultTitle,
+      badge_visibility: config.badge_visibility || 'always',
       debug: config.debug || false,
       ...config,
       tap_action: tapAction,
@@ -1696,22 +1716,74 @@ class DeviceMonitorBadge extends HTMLElement {
   }
 
   /**
+   * Check if dashboard is in editing mode
+   */
+  _isInEditMode() {
+    // Check URL for edit=1 parameter (most reliable method)
+    const url = new URL(window.location.href);
+    const editParam = url.searchParams.get('edit');
+    if (editParam === '1') {
+      return true;
+    }
+
+    // Check if hass.ui.editMode is set (fallback)
+    if (this._hass && this._hass.ui && this._hass.ui.editMode) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
    * Render the badge
    */
   render() {
+    const isInEditMode = this._isInEditMode();
+
     if (!this._hass) {
-      this.shadowRoot.innerHTML = `
-        <ha-badge>
-          <ha-icon slot="icon" icon="mdi:battery"></ha-icon>
-          ...
-        </ha-badge>
-      `;
+      // In edit mode without hass, show a placeholder
+      if (isInEditMode) {
+        const strategy = ENTITY_TYPES[this._config.entity_type || 'battery'];
+        const icon = strategy.getIcon({});
+        const color = '#757575';
+        const badgeText = `${this._config.title || 'Device Monitor'} (0/0)`;
+
+        this.shadowRoot.innerHTML = `
+          <style>
+            :host {
+              display: inline-block;
+            }
+            ha-badge {
+              --badge-color: ${color};
+            }
+          </style>
+          <ha-badge label="${badgeText}">
+            <ha-icon slot="icon" icon="${icon}"></ha-icon>
+          </ha-badge>
+        `;
+      } else {
+        this.shadowRoot.innerHTML = `
+          <ha-badge>
+            <ha-icon slot="icon" icon="mdi:battery"></ha-icon>
+            ...
+          </ha-badge>
+        `;
+      }
       return;
     }
 
     const { alertDevices, totalDevices } = this._getDevices();
     const strategy = ENTITY_TYPES[this._config.entity_type];
     const alertCount = alertDevices.length;
+
+    // Check visibility setting (but always show in edit mode)
+    const badgeVisibility = this._config.badge_visibility || 'always';
+    if (badgeVisibility === 'alert' && alertCount === 0 && !isInEditMode) {
+      // Hide the badge when set to "only on alert" and there are no alerts (unless editing)
+      this.shadowRoot.innerHTML = '';
+      return;
+    }
+
     const badgeText = `${this._config.title} (${alertCount}/${totalDevices})`;
     const icon = strategy.getIcon({});
     const color = strategy.getBadgeColor(alertCount);
@@ -1826,6 +1898,7 @@ class DeviceMonitorBadge extends HTMLElement {
       entity_type: 'battery',
       battery_threshold: 20,
       title: 'Low Battery',
+      badge_visibility: 'always',
       debug: false,
       tap_action: { action: 'none' },
       hold_action: { action: 'none' },
@@ -2008,6 +2081,17 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
 
         <div class="option">
           <div class="label-container">
+            <label>Card Visibility</label>
+            <div class="description">When to display the card</div>
+          </div>
+          <select id="badge_visibility">
+            <option value="always" ${(this._config.badge_visibility === 'always' || !this._config.badge_visibility) ? 'selected' : ''}>Always</option>
+            <option value="alert" ${this._config.badge_visibility === 'alert' ? 'selected' : ''}>Only on Alert</option>
+          </select>
+        </div>
+
+        <div class="option">
+          <div class="label-container">
             <label>Tap Action</label>
             <div class="description">Action when badge is tapped</div>
           </div>
@@ -2109,6 +2193,7 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
     const titleInput = this.querySelector('#title');
     const entityTypeInput = this.querySelector('#entity_type');
     const thresholdInput = this.querySelector('#battery_threshold');
+    const badgeVisibilityInput = this.querySelector('#badge_visibility');
     const tapActionTypeInput = this.querySelector('#tap_action_type');
     const tapActionNavigateInput = this.querySelector('#tap_action_navigation_path');
     const tapActionUrlInput = this.querySelector('#tap_action_url_path');
@@ -2179,6 +2264,12 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
         if (strategy && !config.title) {
           config.title = strategy.defaultTitle;
         }
+      }, false);
+    }
+
+    if (badgeVisibilityInput) {
+      badgeVisibilityInput.onchange = updateConfig((config, target) => {
+        config.badge_visibility = target.value;
       }, false);
     }
 
@@ -2289,12 +2380,12 @@ window.customBadges.push({
 });
 
 console.info(
-  '%c DEVICE-MONITOR-CARD %c 1.0.0 ',
+  '%c DEVICE-MONITOR-CARD %c 1.1.0 ',
   'color: white; background: #039be5; font-weight: 700;',
   'color: #039be5; background: white; font-weight: 700;'
 );
 console.info(
-  '%c DEVICE-MONITOR-BADGE %c 1.0.0 ',
+  '%c DEVICE-MONITOR-BADGE %c 1.1.0 ',
   'color: white; background: #26a69a; font-weight: 700;',
   'color: #26a69a; background: white; font-weight: 700;'
 );
