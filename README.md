@@ -725,6 +725,11 @@ MIT License - see LICENSE file for details
 
 ## Changelog
 
+### v1.2.0 (2025-12-10)
+
+- **Hide when no device is on alert**: New configuration option to hide the card or badge when there aren't any entities that meet the criteria.
+- **Include groups**: Before we ignored groups of devices, even if they were of the right type. Not anymore!
+
 ### v1.1.0 (2025-12-09)
 
 **Card Features/Fixes:**
