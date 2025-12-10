@@ -331,22 +331,31 @@ class DeviceMonitorCard extends HTMLElement {
       }
 
       // Get device information
-      const deviceId = this._getDeviceId(entityId);
-      if (!deviceId) {
-        return; // Skip entities without device
-      }
+      let deviceId = this._getDeviceId(entityId);
+      let deviceName;
+      let areaId = null;
+      let areaName = null;
 
-      const deviceName = this._getDeviceName(deviceId);
-      if (!deviceName) {
-        return; // Skip if we can't get device name
+      if (deviceId) {
+        // Physical device
+        deviceName = this._getDeviceName(deviceId);
+        if (!deviceName) {
+          return; // Skip if we can't get device name
+        }
+        // Get area information for grouping
+        areaId = this._getAreaId(deviceId);
+        areaName = areaId ? this._getAreaName(areaId) : null;
+      } else if (this._isGroupEntity(entityId)) {
+        // Group entity (e.g., light.living_room_lights, contact.all_doors)
+        deviceId = entityId; // Use entity ID as unique identifier for groups
+        deviceName = attributes.friendly_name || entityId;
+      } else {
+        // Skip entities without device or group
+        return;
       }
 
       // Get entity friendly name
       const entityName = attributes.friendly_name || entityId;
-
-      // Get area information for grouping
-      const areaId = this._getAreaId(deviceId);
-      const areaName = areaId ? this._getAreaName(areaId) : null;
 
       // Evaluate state using strategy
       const stateInfo = strategy.evaluateState({ ...entity, entity_id: entityId }, this._config);
@@ -585,6 +594,13 @@ class DeviceMonitorCard extends HTMLElement {
   }
 
   /**
+   * Check if entity is a group (light group, contact group, or sensor group)
+   */
+  _isGroupEntity(entityId) {
+    return entityId.startsWith('light.') || entityId.startsWith('contact.') || entityId.startsWith('sensor.');
+  }
+
+  /**
    * Get device ID for an entity
    */
   _getDeviceId(entityId) {
@@ -617,16 +633,28 @@ class DeviceMonitorCard extends HTMLElement {
    * Open device page
    */
   _openDevice(deviceId) {
-    const event = new Event('hass-more-info', {
-      bubbles: true,
-      composed: true,
-    });
-    event.detail = { entityId: null };
-    this.dispatchEvent(event);
+    // Check if this is a group entity (entity ID passed as deviceId for groups)
+    if (this._isGroupEntity(deviceId)) {
+      // For groups, show the entity details in more-info dialog
+      const event = new Event('hass-more-info', {
+        bubbles: true,
+        composed: true,
+      });
+      event.detail = { entityId: deviceId };
+      this.dispatchEvent(event);
+    } else {
+      // For physical devices, navigate to device page
+      const event = new Event('hass-more-info', {
+        bubbles: true,
+        composed: true,
+      });
+      event.detail = { entityId: null };
+      this.dispatchEvent(event);
 
-    // Navigate to device page
-    history.pushState(null, '', `/config/devices/device/${deviceId}`);
-    window.dispatchEvent(new CustomEvent('location-changed'));
+      // Navigate to device page
+      history.pushState(null, '', `/config/devices/device/${deviceId}`);
+      window.dispatchEvent(new CustomEvent('location-changed'));
+    }
   }
 
   /**
@@ -1535,6 +1563,13 @@ class DeviceMonitorBadge extends HTMLElement {
     const entityRegistry = this._hass.entities[entityId];
     // Entity is hidden if hidden property is true (when marked invisible via UI)
     return entityRegistry?.hidden === true;
+  }
+
+  /**
+   * Check if entity is a group (light group, contact group, or sensor group)
+   */
+  _isGroupEntity(entityId) {
+    return entityId.startsWith('light.') || entityId.startsWith('contact.') || entityId.startsWith('sensor.');
   }
 
   /**

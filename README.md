@@ -624,14 +624,15 @@ The card automatically adapts to your Home Assistant theme.
 2. For batteries: Check that entities have `device_class: battery` or "battery" in entity ID
 3. For contact sensors: Check that entities have appropriate device_class (door, window, etc.)
 4. For lights: Verify entities are in the `light.*` domain
-5. Verify entities are linked to devices in the device registry
+5. Entities must be linked to devices in the device registry, OR be group entities (`light.*`, `contact.*`, or `sensor.*` groups)
 6. For batteries: Lower the `battery_threshold` to include more devices
 
 ### Device names not showing
 
 1. Verify entities are properly linked to devices
 2. Check the device registry has names for your devices
-3. Some entities may not be associated with a device and will be skipped
+3. For group entities, ensure the group has a friendly name set (displayed name)
+4. Some entities may not be associated with a device and will be skipped (unless they are groups)
 
 ### Grouping not working
 
