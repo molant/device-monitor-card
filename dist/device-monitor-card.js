@@ -349,6 +349,12 @@ class DeviceMonitorCard extends HTMLElement {
         // Group entity (e.g., light.living_room_lights, contact.all_doors)
         deviceId = entityId; // Use entity ID as unique identifier for groups
         deviceName = attributes.friendly_name || entityId;
+        // Get area information for group entities from entity registry
+        const entityReg = this._hass.entities[entityId];
+        if (entityReg?.area_id) {
+          areaId = entityReg.area_id;
+          areaName = this._getAreaName(areaId);
+        }
       } else {
         // Skip entities without device or group
         return;
@@ -1527,14 +1533,22 @@ class DeviceMonitorBadge extends HTMLElement {
       }
 
       // Get device information
-      const deviceId = this._getDeviceId(entityId);
-      if (!deviceId) {
-        return; // Skip entities without device
-      }
+      let deviceId = this._getDeviceId(entityId);
+      let deviceName;
 
-      const deviceName = this._getDeviceName(deviceId);
-      if (!deviceName) {
-        return; // Skip if we can't get device name
+      if (deviceId) {
+        // Physical device
+        deviceName = this._getDeviceName(deviceId);
+        if (!deviceName) {
+          return; // Skip if we can't get device name
+        }
+      } else if (this._isGroupEntity(entityId)) {
+        // Group entity (e.g., light.living_room_lights, contact.all_doors)
+        deviceId = entityId; // Use entity ID as unique identifier for groups
+        deviceName = this._hass.entities[entityId]?.attributes?.friendly_name || entityId;
+      } else {
+        // Skip entities without device or group
+        return;
       }
 
       // Evaluate state using strategy
