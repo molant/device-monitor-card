@@ -360,14 +360,24 @@ class DeviceMonitorCard extends HTMLElement {
       // Evaluate state using strategy
       const stateInfo = strategy.evaluateState({ ...entity, entity_id: entityId }, this._config);
 
+      // For light and contact types, create unique entries per entity since one device can have multiple entities
+      // For battery type, use deviceId as key to deduplicate (one battery per device)
+      let storageKey;
+      if (entityType === 'battery') {
+        storageKey = deviceId;
+      } else {
+        // For lights and contacts, use entity ID as key so we track each entity separately
+        storageKey = entityId;
+      }
+
       // Store or update device info
       // For batteries, prefer numeric levels; for others, just use first match
-      const existingDevice = devices[deviceId];
+      const existingDevice = devices[storageKey];
       const shouldUpdate = !existingDevice ||
         (entityType === 'battery' && stateInfo.numericValue !== null && existingDevice.stateInfo.numericValue === null);
 
       if (shouldUpdate) {
-        devices[deviceId] = {
+        devices[storageKey] = {
           deviceId,
           deviceName,
           entityName,
@@ -1530,14 +1540,24 @@ class DeviceMonitorBadge extends HTMLElement {
       // Evaluate state using strategy
       const stateInfo = strategy.evaluateState({ ...entity, entity_id: entityId }, this._config);
 
+      // For light and contact types, create unique entries per entity since one device can have multiple entities
+      // For battery type, use deviceId as key to deduplicate (one battery per device)
+      let storageKey;
+      if (entityType === 'battery') {
+        storageKey = deviceId;
+      } else {
+        // For lights and contacts, use entity ID as key so we track each entity separately
+        storageKey = entityId;
+      }
+
       // Store or update device info
       // For batteries, prefer numeric levels; for others, just use first match
-      const existingDevice = devices[deviceId];
+      const existingDevice = devices[storageKey];
       const shouldUpdate = !existingDevice ||
         (entityType === 'battery' && stateInfo.numericValue !== null && existingDevice.stateInfo.numericValue === null);
 
       if (shouldUpdate) {
-        devices[deviceId] = {
+        devices[storageKey] = {
           deviceId,
           deviceName,
           entityId,
