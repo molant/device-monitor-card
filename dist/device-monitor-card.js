@@ -773,6 +773,25 @@ class DeviceMonitorCard extends HTMLElement {
   }
 
   /**
+   * Check if dashboard is in editing mode
+   */
+  _isInEditMode() {
+    // Check URL for edit=1 parameter (most reliable method)
+    const url = new URL(window.location.href);
+    const editParam = url.searchParams.get('edit');
+    if (editParam === '1') {
+      return true;
+    }
+
+    // Check if hass.ui.editMode is set (fallback)
+    if (this._hass && this._hass.ui && this._hass.ui.editMode) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
    * Render the card
    */
   render() {
@@ -807,8 +826,10 @@ class DeviceMonitorCard extends HTMLElement {
     const alertCount = alertDevices.filter(d => !d.isGroupHeader).length;
 
     // Check visibility setting (hide card when set to "alert only" and there are no alerts)
+    // But always show in edit mode so user can configure it
+    const isInEditMode = this._isInEditMode();
     const cardVisibility = this._config.card_visibility || 'always';
-    if (cardVisibility === 'alert' && alertCount === 0) {
+    if (cardVisibility === 'alert' && alertCount === 0 && !isInEditMode) {
       // Hide the card
       this.shadowRoot.innerHTML = '';
       return;
