@@ -7,7 +7,7 @@
  * - Device Monitor Card: Full card with device list and details
  * - Device Monitor Badge: Compact badge showing alert count
  *
- * @version 1.2.0
+ * @version 1.2.1
  * @author Custom Card
  * @license MIT
  */
@@ -2414,12 +2414,12 @@ window.customBadges.push({
 });
 
 console.info(
-  '%c DEVICE-MONITOR-CARD %c 1.2.0 ',
+  '%c DEVICE-MONITOR-CARD %c 1.2.1 ',
   'color: white; background: #039be5; font-weight: 700;',
   'color: #039be5; background: white; font-weight: 700;'
 );
 console.info(
-  '%c DEVICE-MONITOR-BADGE %c 1.2.0 ',
+  '%c DEVICE-MONITOR-BADGE %c 1.2.1 ',
   'color: white; background: #26a69a; font-weight: 700;',
   'color: #26a69a; background: white; font-weight: 700;'
 );

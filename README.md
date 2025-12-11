@@ -725,6 +725,12 @@ MIT License - see LICENSE file for details
 
 ## Changelog
 
+### v1.2.1 (2025-12-10)
+
+- **Consider area of group entities**: It was being ignored completely.
+- **Enumerate all entities for devices that meet the criteria**: A dual smart relay could control 2 sets of lights and previously only one will show up.
+
+
 ### v1.2.0 (2025-12-10)
 
 - **Hide when no device is on alert**: New configuration option to hide the card or badge when there aren't any entities that meet the criteria.
