@@ -725,6 +725,10 @@ MIT License - see LICENSE file for details
 
 ## Changelog
 
+### v1.2.2 (2025-12-11)
+
+- **Fix card visibility options**: INow it hides correctly the same as the badge.
+
 ### v1.2.1 (2025-12-10)
 
 - **Consider area of group entities**: It was being ignored completely.
