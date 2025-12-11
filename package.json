@@ -5,7 +5,8 @@
   "main": "dist/device-monitor-card.js",
   "scripts": {
     "test": "node --check dist/device-monitor-card.js",
-    "prerelease": "./create-prerelease.sh"
+    "prerelease": "./scripts/create-prerelease.sh",
+    "delete-prereleases": "./scripts/delete-prerelease.sh"
   },
   "repository": {
     "type": "git",
