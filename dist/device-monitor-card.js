@@ -773,6 +773,25 @@ class DeviceMonitorCard extends HTMLElement {
   }
 
   /**
+   * Check if dashboard is in editing mode
+   */
+  _isInEditMode() {
+    // Check URL for edit=1 parameter (most reliable method)
+    const url = new URL(window.location.href);
+    const editParam = url.searchParams.get('edit');
+    if (editParam === '1') {
+      return true;
+    }
+
+    // Check if hass.ui.editMode is set (fallback)
+    if (this._hass && this._hass.ui && this._hass.ui.editMode) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
    * Render the card
    */
   render() {
@@ -805,6 +824,17 @@ class DeviceMonitorCard extends HTMLElement {
 
     // Count only actual devices, not group headers
     const alertCount = alertDevices.filter(d => !d.isGroupHeader).length;
+
+    // Check visibility setting (hide card when set to "alert only" and there are no alerts)
+    // But always show in edit mode so user can configure it
+    const isInEditMode = this._isInEditMode();
+    const cardVisibility = this._config.card_visibility || 'always';
+    if (cardVisibility === 'alert' && alertCount === 0 && !isInEditMode) {
+      // Hide the card
+      this.shadowRoot.innerHTML = '';
+      return;
+    }
+
     const title = `${this._config.title} (${alertCount}/${totalDevices})`;
 
     this.shadowRoot.innerHTML = `
@@ -1079,7 +1109,7 @@ class DeviceMonitorCard extends HTMLElement {
       filter: 'alert',
       battery_threshold: 20,
       title: 'Low Battery',
-      badge_visibility: 'always',
+      card_visibility: 'always',
       debug: false,
       collapse: undefined,
       group_by: null,
@@ -1308,9 +1338,9 @@ class DeviceMonitorCardEditor extends HTMLElement {
             <label>Card Visibility</label>
             <div class="description">When to display the card</div>
           </div>
-          <select id="badge_visibility">
-            <option value="always" ${(this._config.badge_visibility === 'always' || !this._config.badge_visibility) ? 'selected' : ''}>Always</option>
-            <option value="alert" ${this._config.badge_visibility === 'alert' ? 'selected' : ''}>Only on Alert</option>
+          <select id="card_visibility">
+            <option value="always" ${(this._config.card_visibility === 'always' || !this._config.card_visibility) ? 'selected' : ''}>Always</option>
+            <option value="alert" ${this._config.card_visibility === 'alert' ? 'selected' : ''}>Only on Alert</option>
           </select>
         </div>
 
@@ -1364,7 +1394,7 @@ class DeviceMonitorCardEditor extends HTMLElement {
     const sortByInput = this.querySelector('#sort_by');
     const nameSourceInput = this.querySelector('#name_source');
     const collapseInput = this.querySelector('#collapse');
-    const badgeVisibilityInput = this.querySelector('#badge_visibility');
+    const cardVisibilityInput = this.querySelector('#card_visibility');
     const showToggleInput = this.querySelector('#show_toggle');
     const debugInput = this.querySelector('#debug');
 
@@ -1408,9 +1438,9 @@ class DeviceMonitorCardEditor extends HTMLElement {
       config.name_source = target.value;
     }, false);
 
-    if (badgeVisibilityInput) {
-      badgeVisibilityInput.onchange = updateConfig((config, target) => {
-        config.badge_visibility = target.value;
+    if (cardVisibilityInput) {
+      cardVisibilityInput.onchange = updateConfig((config, target) => {
+        config.card_visibility = target.value;
       }, false);
     }
 
