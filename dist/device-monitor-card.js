@@ -873,7 +873,8 @@ class DeviceMonitorCard extends HTMLElement {
     const strategy = ENTITY_TYPES[this._config.entity_type];
     const stateInfo = { ...device.stateInfo, attributes: device.attributes, entityId: device.entityId };
     const isLight = this._config.entity_type === 'light';
-    const showToggle = this._config.show_toggle && isLight;
+    const isUnavailable = stateInfo.isUnavailable;
+    const showToggle = this._config.show_toggle && isLight && !isUnavailable;
     const isOn = device.stateInfo.value === 'on';
 
     // Use custom icon if set, otherwise use strategy icon
@@ -882,6 +883,9 @@ class DeviceMonitorCard extends HTMLElement {
 
     // Choose name based on config
     const displayName = this._config.name_source === 'entity' ? device.entityName : device.deviceName;
+    const nameClass = `device-name${isUnavailable ? ' unavailable' : ''}`;
+    const stateValue = isUnavailable ? 'Unavailable' : device.stateInfo.displayValue;
+    const stateValueClass = `state-value${isUnavailable ? ' unavailable' : ''}`;
 
     return `
       <div class="device-item" data-device-id="${device.deviceId}" data-entity-id="${device.entityId}">
@@ -892,7 +896,7 @@ class DeviceMonitorCard extends HTMLElement {
           ></ha-icon>
         </div>
         <div class="device-info">
-          <div class="device-name">${displayName}</div>
+          <div class="${nameClass}">${displayName}</div>
           <div class="device-secondary">
             ${localizationHelper.localize('labels.last_changed')}: ${this._formatLastChanged(device.lastChanged)}
           </div>
@@ -905,8 +909,8 @@ class DeviceMonitorCard extends HTMLElement {
             </label>
           </div>
         ` : `
-          <div class="state-value">
-            ${device.stateInfo.displayValue}
+          <div class="${stateValueClass}">
+            ${stateValue}
           </div>
         `}
       </div>
@@ -1076,6 +1080,10 @@ class DeviceMonitorCard extends HTMLElement {
           white-space: nowrap;
         }
 
+        .device-name.unavailable {
+          color: var(--secondary-text-color);
+        }
+
         .device-secondary {
           font-size: 0.9em;
           color: var(--secondary-text-color);
@@ -1088,6 +1096,10 @@ class DeviceMonitorCard extends HTMLElement {
           margin-left: 12px;
           flex-shrink: 0;
           color: var(--primary-text-color);
+        }
+
+        .state-value.unavailable {
+          color: var(--secondary-text-color);
         }
 
         .toggle-container {
