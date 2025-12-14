@@ -15,6 +15,8 @@
 /**
  * Localization Helper for multi-language support
  */
+const CARD_VERSION = '1.2.2';
+
 class LocalizationHelper {
   constructor() {
     this.translations = {};
@@ -33,7 +35,7 @@ class LocalizationHelper {
 
     this.loadPromises[language] = (async () => {
       try {
-        const response = await fetch(`/local/community/device-monitor-card/translations/${language}.json`);
+        const response = await fetch(`/local/community/device-monitor-card/translations/${language}.json?v=${CARD_VERSION}`);
         if (!response.ok) {
           throw new Error(`Translation file not found: ${language} (status: ${response.status})`);
         }
