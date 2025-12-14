@@ -13,6 +13,317 @@
  */
 
 /**
+ * Localization Helper for multi-language support
+ */
+class LocalizationHelper {
+  constructor() {
+    this.translations = {};
+    this.currentLanguage = 'en';
+    this.loadPromises = {};
+  }
+
+  async loadTranslations(language) {
+    if (this.translations[language]) {
+      return; // Already loaded
+    }
+
+    if (this.loadPromises[language]) {
+      return this.loadPromises[language]; // Already loading
+    }
+
+    this.loadPromises[language] = (async () => {
+      try {
+        const response = await fetch(`/local/community/device-monitor-card/translations/${language}.json`);
+        if (!response.ok) {
+          throw new Error(`Translation file not found: ${language} (status: ${response.status})`);
+        }
+        const data = await response.json();
+        this.translations[language] = data;
+      } catch (error) {
+        console.warn(`[Device Monitor] Failed to load translations for ${language}:`, error);
+        // If not English, try loading English as fallback
+        if (language !== 'en') {
+          console.warn(`[Device Monitor] Attempting to load English as fallback for language: ${language}`);
+          await this.loadTranslations('en');
+          // Copy English translations to this language
+          this.translations[language] = this.translations['en'];
+        } else {
+          // Initialize empty translations for current language to prevent errors
+          // Use a complete empty structure with all sections
+          this.translations[language] = {
+            editor: {},
+            labels: {},
+            empty_messages: {},
+            default_titles: {}
+          };
+        }
+      } finally {
+        delete this.loadPromises[language];
+      }
+    })();
+
+    return this.loadPromises[language];
+  }
+
+  async setLanguage(hass) {
+    // Priority order for language detection:
+    // 1. hass.locale.language (most reliable - what CardEditor uses)
+    // 2. hass.config.language (fallback)
+    // 3. hass.language (fallback)
+    // 4. 'en' (default)
+    const lang = hass?.locale?.language || hass?.config?.language || hass?.language || 'en';
+    const shortLang = lang.split('-')[0]; // 'es-ES' -> 'es', 'en-US' -> 'en'
+
+    // Always ensure the language is loaded, even if it's the same
+    // This handles the case where the user switched away and back to the same language
+    await this.loadTranslations(shortLang);
+    this.currentLanguage = shortLang;
+  }
+
+  localize(key) {
+    const keys = key.split('.');
+    let value = this.translations[this.currentLanguage];
+
+    for (const k of keys) {
+      value = value?.[k];
+    }
+
+    // Fallback to English if translation missing
+    if (value === undefined && this.currentLanguage !== 'en') {
+      value = this.translations['en'];
+      for (const k of keys) {
+        value = value?.[k];
+      }
+    }
+
+    // Return translated value, or empty string if not found
+    // This prevents showing technical keys to users during async loading
+    return value !== undefined ? value : '';
+  }
+}
+
+// Create singleton instance
+const localizationHelper = new LocalizationHelper();
+
+// Preload English translations immediately
+localizationHelper.loadTranslations('en').catch(err => {
+  console.warn('[Device Monitor] Failed to preload English translations:', err);
+});
+
+const DEFAULT_TITLE_FALLBACKS = {
+  battery: 'Low Battery',
+  contact: 'Open Doors & Windows',
+  light: 'Lights On'
+};
+
+const getDefaultTitle = (entityType) => {
+  const localized = localizationHelper.localize(`default_titles.${entityType}`);
+  return localized || DEFAULT_TITLE_FALLBACKS[entityType] || 'Device Monitor';
+};
+
+const getEmptyMessage = (entityType, strategy) => {
+  const localized = localizationHelper.localize(`empty_messages.${entityType}`);
+  return localized || strategy.emptyMessage;
+};
+
+const registryHelpers = {
+  getAreaId(hass, deviceId) {
+    if (!hass || !hass.devices) {
+      return null;
+    }
+    const device = hass.devices[deviceId];
+    return device?.area_id || null;
+  },
+
+  getAreaName(hass, areaId) {
+    if (!hass || !hass.areas) {
+      return null;
+    }
+    const area = hass.areas[areaId];
+    return area?.name || null;
+  },
+
+  getFloorId(hass, areaId) {
+    if (!hass || !hass.areas) {
+      return null;
+    }
+    const area = hass.areas[areaId];
+    return area?.floor_id || null;
+  },
+
+  getFloorName(hass, floorId) {
+    if (!hass || !hass.floors) {
+      return null;
+    }
+    const floor = hass.floors[floorId];
+    return floor?.name || null;
+  },
+
+  isEntityHidden(hass, entityId) {
+    if (!hass || !hass.entities) {
+      return false;
+    }
+    const entityRegistry = hass.entities[entityId];
+    return entityRegistry?.hidden === true;
+  },
+
+  isGroupEntity(entityId) {
+    return entityId.startsWith('light.') || entityId.startsWith('contact.') || entityId.startsWith('sensor.');
+  },
+
+  getDeviceId(hass, entityId) {
+    if (!hass || !hass.entities) {
+      return null;
+    }
+    const entity = hass.entities[entityId];
+    return entity?.device_id || null;
+  },
+
+  getDeviceName(hass, deviceId) {
+    if (!hass || !hass.devices) {
+      return null;
+    }
+    const device = hass.devices[deviceId];
+    if (!device) {
+      return null;
+    }
+    return device.name_by_user || device.name || deviceId;
+  }
+};
+
+const collectDevices = (hass, config, options = {}) => {
+  if (!hass) {
+    return { alertDevices: [], normalDevices: [], totalDevices: 0, allDevices: [] };
+  }
+
+  const entityType = config.entity_type || 'battery';
+  const strategy = ENTITY_TYPES[entityType];
+  if (!strategy) {
+    return { alertDevices: [], normalDevices: [], totalDevices: 0, allDevices: [] };
+  }
+
+  const includeArea = options.includeArea || false;
+  const debug = options.debug || false;
+  const debugTag = options.debugTag || 'Device Monitor';
+  const entities = hass.states || {};
+  const devices = {};
+  const batteryLowBinarySensors = new Set();
+
+  if (entityType === 'battery') {
+    Object.keys(entities).forEach(entityId => {
+      if (entityId.includes('_battery_low') && entityId.startsWith('binary_sensor.')) {
+        batteryLowBinarySensors.add(entityId.replace('binary_sensor.', 'sensor.').replace('_battery_low', '_battery'));
+      }
+    });
+  }
+
+  Object.keys(entities).forEach(entityId => {
+    const entity = entities[entityId];
+    const attributes = entity?.attributes || {};
+
+    if (!strategy.detect(entityId, attributes)) {
+      return;
+    }
+
+    if (registryHelpers.isEntityHidden(hass, entityId)) {
+      return;
+    }
+
+    if (debug) {
+      console.log(`[Device Monitor ${debugTag}] Found ${entityType} entity:`, {
+        entityId,
+        device_class: attributes.device_class,
+        state: entity?.state
+      });
+    }
+
+    if (entityType === 'battery' && batteryLowBinarySensors.has(entityId)) {
+      return;
+    }
+
+    let deviceId = registryHelpers.getDeviceId(hass, entityId);
+    let deviceName;
+    let areaId = null;
+    let areaName = null;
+
+    if (deviceId) {
+      deviceName = registryHelpers.getDeviceName(hass, deviceId);
+      if (!deviceName) {
+        return;
+      }
+      if (includeArea) {
+        areaId = registryHelpers.getAreaId(hass, deviceId);
+        areaName = areaId ? registryHelpers.getAreaName(hass, areaId) : null;
+      }
+    } else if (registryHelpers.isGroupEntity(entityId)) {
+      deviceId = entityId;
+      deviceName = attributes.friendly_name || entityId;
+      if (includeArea) {
+        const entityReg = hass.entities?.[entityId];
+        if (entityReg?.area_id) {
+          areaId = entityReg.area_id;
+          areaName = registryHelpers.getAreaName(hass, areaId);
+        }
+      }
+    } else {
+      return;
+    }
+
+    const entityName = attributes.friendly_name || entityId;
+    const stateInfo = strategy.evaluateState({ ...entity, entity_id: entityId }, config, hass);
+    const storageKey = entityType === 'battery' ? deviceId : entityId;
+
+    const existingDevice = devices[storageKey];
+    const shouldUpdate = !existingDevice ||
+      (entityType === 'battery' && stateInfo.numericValue !== null && existingDevice.stateInfo.numericValue === null);
+
+    if (shouldUpdate) {
+      devices[storageKey] = {
+        deviceId,
+        deviceName,
+        entityName,
+        entityId,
+        stateInfo,
+        lastChanged: entity?.last_changed,
+        attributes
+      };
+
+      if (includeArea) {
+        devices[storageKey].areaId = areaId;
+        devices[storageKey].areaName = areaName;
+      }
+
+      if (debug) {
+        console.log(`[Device Monitor ${debugTag}] ${existingDevice ? 'Updated' : 'Added'} device:`, {
+          deviceName,
+          entityId,
+          stateInfo
+        });
+      }
+    }
+  });
+
+  const allDevices = Object.values(devices);
+  const alertDevices = allDevices.filter(d => d.stateInfo.isAlert);
+  const normalDevices = allDevices.filter(d => !d.stateInfo.isAlert);
+
+  if (debug) {
+    console.log(`[Device Monitor ${debugTag}] Summary for ${entityType}:`, {
+      total: allDevices.length,
+      alert: alertDevices.length,
+      normal: normalDevices.length
+    });
+  }
+
+  return {
+    alertDevices,
+    normalDevices,
+    allDevices,
+    totalDevices: allDevices.length
+  };
+};
+
+/**
  * Entity type strategies for different device types
  */
 const ENTITY_TYPES = {
@@ -34,15 +345,17 @@ const ENTITY_TYPES = {
     },
 
     // Evaluate if the entity state is in alert condition
-    evaluateState: (entity, config) => {
+    evaluateState: (entity, config, hass) => {
       const threshold = config.battery_threshold || 20;
       const entityId = entity.entity_id;
 
       // Handle binary_sensor.*_battery_low
       if (entityId.includes('_battery_low') && entityId.startsWith('binary_sensor.')) {
+        const stateObj = hass?.states?.[entityId];
+        const displayValue = stateObj ? hass.formatEntityState(stateObj) : (entity.state === 'on' ? 'Low' : 'OK');
         return {
-          value: entity.state === 'on' ? 'Low' : 'OK',
-          displayValue: entity.state === 'on' ? 'Low' : 'OK',
+          value: entity.state === 'on' ? 'low' : 'ok',
+          displayValue: displayValue,
           isAlert: entity.state === 'on',
           numericValue: null
         };
@@ -70,8 +383,8 @@ const ENTITY_TYPES = {
 
     // Get icon for battery state
     getIcon: (state) => {
-      if (state.value === 'Low') return 'mdi:battery-alert';
-      if (state.value === 'OK') return 'mdi:battery';
+      if (state.value === 'low') return 'mdi:battery-alert';
+      if (state.value === 'ok') return 'mdi:battery';
       if (state.numericValue === null) return 'mdi:battery-unknown';
 
       const level = state.numericValue;
@@ -90,8 +403,8 @@ const ENTITY_TYPES = {
 
     // Get color for battery state
     getColor: (state) => {
-      if (state.value === 'Low') return '#ff0000';
-      if (state.value === 'OK') return '#44739e';
+      if (state.value === 'low') return '#ff0000';
+      if (state.value === 'ok') return '#44739e';
       if (state.numericValue === null) return '#ffa500';
 
       const level = state.numericValue;
@@ -129,11 +442,13 @@ const ENTITY_TYPES = {
     },
 
     // Evaluate if the entity state is in alert condition
-    evaluateState: (entity, config) => {
+    evaluateState: (entity, config, hass) => {
       const isOpen = entity.state === 'on';
+      const stateObj = hass?.states?.[entity.entity_id];
+      const displayValue = stateObj ? hass.formatEntityState(stateObj) : (isOpen ? 'Open' : 'Closed');
       return {
         value: entity.state,
-        displayValue: isOpen ? 'Open' : 'Closed',
+        displayValue: displayValue,
         isAlert: isOpen,
         numericValue: null
       };
@@ -164,7 +479,7 @@ const ENTITY_TYPES = {
     emptyIcon: 'mdi:door-closed',
 
     // Default title for badge
-    defaultTitle: 'Open Doors',
+    defaultTitle: 'Open Doors & Windows',
 
     // Get badge color based on alert count
     getBadgeColor: (alertCount) => {
@@ -182,11 +497,13 @@ const ENTITY_TYPES = {
     },
 
     // Evaluate if the entity state is in alert condition
-    evaluateState: (entity, config) => {
+    evaluateState: (entity, config, hass) => {
       const isOn = entity.state === 'on';
+      const stateObj = hass?.states?.[entity.entity_id];
+      const displayValue = stateObj ? hass.formatEntityState(stateObj) : (isOn ? 'On' : 'Off');
       return {
         value: entity.state,
-        displayValue: isOn ? 'On' : 'Off',
+        displayValue: displayValue,
         isAlert: isOn,
         numericValue: null
       };
@@ -240,11 +557,7 @@ class DeviceMonitorCard extends HTMLElement {
       throw new Error(`Invalid entity_type: ${entityType}. Must be one of: ${Object.keys(ENTITY_TYPES).join(', ')}`);
     }
 
-    // Default title based on entity type
-    let defaultTitle = 'Device Monitor';
-    if (entityType === 'battery') defaultTitle = 'Low Battery';
-    else if (entityType === 'contact') defaultTitle = 'Open Doors & Windows';
-    else if (entityType === 'light') defaultTitle = 'Lights On';
+    const defaultTitle = getDefaultTitle(entityType);
 
     this._config = {
       entity_type: entityType,
@@ -282,155 +595,22 @@ class DeviceMonitorCard extends HTMLElement {
    * Get all devices for the configured entity type
    */
   _getDevices() {
-    if (!this._hass) {
-      return { alertDevices: [], normalDevices: [], totalDevices: 0 };
-    }
-
-    const entityType = this._config.entity_type;
-    const strategy = ENTITY_TYPES[entityType];
-    const entities = this._hass.states;
-    const devices = {};
-    const batteryLowBinarySensors = new Set();
-
-    // Special handling for battery: find binary_sensor.*_battery_low entities
-    if (entityType === 'battery') {
-      Object.keys(entities).forEach(entityId => {
-        if (entityId.includes('_battery_low') && entityId.startsWith('binary_sensor.')) {
-          batteryLowBinarySensors.add(entityId.replace('binary_sensor.', 'sensor.').replace('_battery_low', '_battery'));
-        }
-      });
-    }
-
-    // Process all entities
-    Object.keys(entities).forEach(entityId => {
-      const entity = entities[entityId];
-      const attributes = entity.attributes || {};
-
-      // Check if this entity matches our type
-      if (!strategy.detect(entityId, attributes)) {
-        return;
-      }
-
-      // Skip if entity is marked as invisible in Home Assistant UI
-      if (this._isEntityHidden(entityId)) {
-        return;
-      }
-
-      // Debug logging
-      if (this._config.debug) {
-        console.log(`[Device Monitor] Found ${entityType} entity:`, {
-          entityId,
-          device_class: attributes.device_class,
-          state: entity.state
-        });
-      }
-
-      // Skip if there's a corresponding battery_low binary sensor (battery only)
-      if (entityType === 'battery' && batteryLowBinarySensors.has(entityId)) {
-        return;
-      }
-
-      // Get device information
-      let deviceId = this._getDeviceId(entityId);
-      let deviceName;
-      let areaId = null;
-      let areaName = null;
-
-      if (deviceId) {
-        // Physical device
-        deviceName = this._getDeviceName(deviceId);
-        if (!deviceName) {
-          return; // Skip if we can't get device name
-        }
-        // Get area information for grouping
-        areaId = this._getAreaId(deviceId);
-        areaName = areaId ? this._getAreaName(areaId) : null;
-      } else if (this._isGroupEntity(entityId)) {
-        // Group entity (e.g., light.living_room_lights, contact.all_doors)
-        deviceId = entityId; // Use entity ID as unique identifier for groups
-        deviceName = attributes.friendly_name || entityId;
-        // Get area information for group entities from entity registry
-        const entityReg = this._hass.entities[entityId];
-        if (entityReg?.area_id) {
-          areaId = entityReg.area_id;
-          areaName = this._getAreaName(areaId);
-        }
-      } else {
-        // Skip entities without device or group
-        return;
-      }
-
-      // Get entity friendly name
-      const entityName = attributes.friendly_name || entityId;
-
-      // Evaluate state using strategy
-      const stateInfo = strategy.evaluateState({ ...entity, entity_id: entityId }, this._config);
-
-      // For light and contact types, create unique entries per entity since one device can have multiple entities
-      // For battery type, use deviceId as key to deduplicate (one battery per device)
-      let storageKey;
-      if (entityType === 'battery') {
-        storageKey = deviceId;
-      } else {
-        // For lights and contacts, use entity ID as key so we track each entity separately
-        storageKey = entityId;
-      }
-
-      // Store or update device info
-      // For batteries, prefer numeric levels; for others, just use first match
-      const existingDevice = devices[storageKey];
-      const shouldUpdate = !existingDevice ||
-        (entityType === 'battery' && stateInfo.numericValue !== null && existingDevice.stateInfo.numericValue === null);
-
-      if (shouldUpdate) {
-        devices[storageKey] = {
-          deviceId,
-          deviceName,
-          entityName,
-          entityId,
-          stateInfo,
-          lastChanged: entity.last_changed,
-          attributes,
-          areaId,
-          areaName
-        };
-
-        if (this._config.debug) {
-          console.log(`[Device Monitor] ${existingDevice ? 'Updated' : 'Added'} device:`, {
-            deviceName,
-            entityId,
-            stateInfo
-          });
-        }
-      }
+    const { alertDevices, normalDevices, totalDevices } = collectDevices(this._hass, this._config, {
+      includeArea: true,
+      debug: this._config.debug,
+      debugTag: 'Card'
     });
 
-    // Get all devices and separate by alert status
-    let allDevices = Object.values(devices);
-    const alertDevices = allDevices.filter(d => d.stateInfo.isAlert);
-    const normalDevices = allDevices.filter(d => !d.stateInfo.isAlert);
-
-    // Apply grouping if configured
     const groupedAlertDevices = this._groupDevices(alertDevices);
     const groupedNormalDevices = this._groupDevices(normalDevices);
 
-    // Apply sorting
     const sortedAlertDevices = this._sortDevices(groupedAlertDevices);
     const sortedNormalDevices = this._sortDevices(groupedNormalDevices);
-
-    // Summary debug logging
-    if (this._config.debug) {
-      console.log(`[Device Monitor] Summary for ${entityType}:`, {
-        total: allDevices.length,
-        alert: alertDevices.length,
-        normal: normalDevices.length
-      });
-    }
 
     return {
       alertDevices: sortedAlertDevices,
       normalDevices: sortedNormalDevices,
-      totalDevices: allDevices.length
+      totalDevices: totalDevices
     };
   }
 
@@ -453,8 +633,8 @@ class DeviceMonitorCard extends HTMLElement {
         groupKey = device.areaName || 'No Area';
       } else if (groupBy === 'floor') {
         // Get floor from area
-        const floorId = device.areaId ? this._getFloorId(device.areaId) : null;
-        groupKey = floorId ? this._getFloorName(floorId) : 'No Floor';
+        const floorId = device.areaId ? registryHelpers.getFloorId(this._hass, device.areaId) : null;
+        groupKey = floorId ? registryHelpers.getFloorName(this._hass, floorId) : 'No Floor';
       }
 
       if (!grouped[groupKey]) {
@@ -549,112 +729,15 @@ class DeviceMonitorCard extends HTMLElement {
   }
 
   /**
-   * Get area ID for a device
-   */
-  _getAreaId(deviceId) {
-    if (!this._hass || !this._hass.devices) {
-      return null;
-    }
-
-    const device = this._hass.devices[deviceId];
-    return device?.area_id || null;
-  }
-
-  /**
-   * Get area name from area registry
-   */
-  _getAreaName(areaId) {
-    if (!this._hass || !this._hass.areas) {
-      return null;
-    }
-
-    const area = this._hass.areas[areaId];
-    return area?.name || null;
-  }
-
-  /**
-   * Get floor ID for an area
-   */
-  _getFloorId(areaId) {
-    if (!this._hass || !this._hass.areas) {
-      return null;
-    }
-
-    const area = this._hass.areas[areaId];
-    return area?.floor_id || null;
-  }
-
-  /**
-   * Get floor name from floor registry
-   */
-  _getFloorName(floorId) {
-    if (!this._hass || !this._hass.floors) {
-      return null;
-    }
-
-    const floor = this._hass.floors[floorId];
-    return floor?.name || null;
-  }
-
-  /**
-   * Check if an entity is hidden (marked as invisible in Home Assistant UI)
-   */
-  _isEntityHidden(entityId) {
-    if (!this._hass || !this._hass.entities) {
-      return false;
-    }
-
-    const entityRegistry = this._hass.entities[entityId];
-    // Entity is hidden if hidden property is true (when marked invisible via UI)
-    return entityRegistry?.hidden === true;
-  }
-
-  /**
-   * Check if entity is a group (light group, contact group, or sensor group)
-   */
-  _isGroupEntity(entityId) {
-    return entityId.startsWith('light.') || entityId.startsWith('contact.') || entityId.startsWith('sensor.');
-  }
-
-  /**
-   * Get device ID for an entity
-   */
-  _getDeviceId(entityId) {
-    if (!this._hass || !this._hass.entities) {
-      return null;
-    }
-
-    const entity = this._hass.entities[entityId];
-    return entity?.device_id || null;
-  }
-
-  /**
-   * Get device name from device registry
-   */
-  _getDeviceName(deviceId) {
-    if (!this._hass || !this._hass.devices) {
-      return null;
-    }
-
-    const device = this._hass.devices[deviceId];
-    if (!device) {
-      return null;
-    }
-
-    return device.name_by_user || device.name || deviceId;
-  }
-
-
-  /**
    * Open device page
    */
   _openDevice(deviceId) {
     // Check if this is a group entity (entity ID passed as deviceId for groups)
-    if (this._isGroupEntity(deviceId)) {
+    if (registryHelpers.isGroupEntity(deviceId)) {
       // For groups, show the entity details in more-info dialog
       const event = new Event('hass-more-info', {
         bubbles: true,
-        composed: true,
+        composed: true
       });
       event.detail = { entityId: deviceId };
       this.dispatchEvent(event);
@@ -662,7 +745,7 @@ class DeviceMonitorCard extends HTMLElement {
       // For physical devices, navigate to device page
       const event = new Event('hass-more-info', {
         bubbles: true,
-        composed: true,
+        composed: true
       });
       event.detail = { entityId: null };
       this.dispatchEvent(event);
@@ -688,7 +771,7 @@ class DeviceMonitorCard extends HTMLElement {
   }
 
   /**
-   * Format last changed time
+   * Format last changed time using native Intl.RelativeTimeFormat
    */
   _formatLastChanged(lastChanged) {
     if (!lastChanged) return '';
@@ -696,6 +779,33 @@ class DeviceMonitorCard extends HTMLElement {
     const date = new Date(lastChanged);
     const now = new Date();
     const diffMs = now - date;
+
+    // Try to use Intl.RelativeTimeFormat if available
+    if ('RelativeTimeFormat' in Intl) {
+      const rtf = new Intl.RelativeTimeFormat(this._hass?.locale?.language || this._hass?.language || 'en', { numeric: 'auto' });
+
+      // Calculate appropriate unit and value
+      const diffSecs = Math.floor(diffMs / 1000);
+      if (diffSecs < 60) {
+        return rtf.format(-diffSecs, 'second');
+      }
+      const diffMins = Math.floor(diffMs / 60000);
+      if (diffMins < 60) {
+        return rtf.format(-diffMins, 'minute');
+      }
+      const diffHours = Math.floor(diffMs / 3600000);
+      if (diffHours < 24) {
+        return rtf.format(-diffHours, 'hour');
+      }
+      const diffDays = Math.floor(diffMs / 86400000);
+      if (diffDays < 7) {
+        return rtf.format(-diffDays, 'day');
+      }
+      // For older dates, use absolute date
+      return date.toLocaleDateString(this._hass?.locale?.language || this._hass?.language);
+    }
+
+    // Fallback for browsers without Intl.RelativeTimeFormat
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
@@ -736,7 +846,7 @@ class DeviceMonitorCard extends HTMLElement {
         <div class="device-info">
           <div class="device-name">${displayName}</div>
           <div class="device-secondary">
-            Last changed: ${this._formatLastChanged(device.lastChanged)}
+            ${localizationHelper.localize('labels.last_changed')}: ${this._formatLastChanged(device.lastChanged)}
           </div>
         </div>
         ${showToggle ? `
@@ -804,10 +914,22 @@ class DeviceMonitorCard extends HTMLElement {
       return;
     }
 
+    // Always wait for translations to be loaded before rendering
+    // This prevents race conditions where translations aren't ready yet
+    localizationHelper.setLanguage(this._hass).then(() => {
+      this._renderCard();
+    }).catch(err => {
+      console.warn('[Device Monitor Card] Failed to set language:', err);
+      this._renderCard();
+    });
+  }
+
+  _renderCard() {
     const { alertDevices, normalDevices, totalDevices } = this._getDevices();
     const strategy = ENTITY_TYPES[this._config.entity_type];
     const showAll = this._config.filter === 'all';
     const collapseLimit = this._config.collapse;
+    const emptyMessage = getEmptyMessage(this._config.entity_type, strategy);
 
     // Determine which devices to show
     let devicesToShow = showAll
@@ -1037,33 +1159,33 @@ class DeviceMonitorCard extends HTMLElement {
           ${alertDevices.length === 0 && !showAll ? `
             <div class="empty-state">
               <ha-icon icon="${strategy.emptyIcon}"></ha-icon>
-              <div class="empty-state-text">${strategy.emptyMessage}</div>
+              <div class="empty-state-text">${emptyMessage}</div>
             </div>
           ` : `
             <div class="device-list">
               ${displayDevices.map((device, index) => {
-      // Handle group headers
-      if (device.isGroupHeader) {
-        return this._renderGroupHeader(device.groupName);
-      }
+    // Handle group headers
+    if (device.isGroupHeader) {
+      return this._renderGroupHeader(device.groupName);
+    }
 
-      // Add divider between alert and normal devices (only if not grouped)
-      const needsDivider = showAll &&
+    // Add divider between alert and normal devices (only if not grouped)
+    const needsDivider = showAll &&
         !this._config.group_by &&
         index === alertDevices.length &&
         alertDevices.length > 0 &&
         normalDevices.length > 0;
 
-      return (needsDivider ? '<div class="divider"></div>' : '') +
+    return (needsDivider ? '<div class="divider"></div>' : '') +
         this._renderDevice(device);
-    }).join('')}
+  }).join('')}
             </div>
             ${shouldCollapse ? `
               <div class="expand-button" id="expand-button">
                 ${this._expanded
-          ? `Show less<ha-icon icon="mdi:chevron-up"></ha-icon>`
-          : `Show ${hiddenCount} more<ha-icon icon="mdi:chevron-down"></ha-icon>`
-        }
+    ? 'Show less<ha-icon icon="mdi:chevron-up"></ha-icon>'
+    : `Show ${hiddenCount} more<ha-icon icon="mdi:chevron-down"></ha-icon>`
+}
               </div>
             ` : ''}
           `}
@@ -1141,8 +1263,37 @@ class DeviceMonitorCardEditor extends HTMLElement {
 
     // Only render if not already rendered
     if (!this._rendered) {
-      this.render();
+      this._renderEditor();
       this._rendered = true;
+    }
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    // Log hass object for debugging
+    if (hass && hass.locale) {
+      console.log('[Device Monitor CardEditor] Hass locale detected:', hass.locale);
+    }
+    // Trigger re-render when language might have changed
+    if (this._rendered && this._config) {
+      this._renderEditor();
+    }
+  }
+
+  _renderEditor() {
+    // Load translations and wait before rendering
+    if (this._hass) {
+      localizationHelper.setLanguage(this._hass).then(() => {
+        // Render after language is loaded
+        this.render();
+      }).catch(err => {
+        console.warn('[Device Monitor CardEditor] Failed to set language:', err);
+        // Still render on error
+        this.render();
+      });
+    } else {
+      // Render immediately if no hass
+      this.render();
     }
   }
 
@@ -1159,7 +1310,7 @@ class DeviceMonitorCardEditor extends HTMLElement {
     const dispatchEvent = () => {
       const event = new Event('config-changed', {
         bubbles: true,
-        composed: true,
+        composed: true
       });
       event.detail = { config: newConfig };
       this.dispatchEvent(event);
@@ -1178,6 +1329,7 @@ class DeviceMonitorCardEditor extends HTMLElement {
       return;
     }
 
+    const l = (key) => localizationHelper.localize(`editor.${key}`);
     const entityType = this._config.entity_type || 'battery';
     const showBatteryThreshold = entityType === 'battery';
     const showToggleOption = entityType === 'light';
@@ -1236,44 +1388,44 @@ class DeviceMonitorCardEditor extends HTMLElement {
       <div class="card-config">
         <div class="option">
           <div class="label-container">
-            <label>Title</label>
-            <div class="description">Card title text</div>
+            <label>${l('title')}</label>
+            <div class="description">${l('title_description')}</div>
           </div>
           <input
             id="title"
             type="text"
             value="${this._config.title || ''}"
-            placeholder="Auto"
+            placeholder="${l('auto_placeholder')}"
           />
         </div>
 
         <div class="option">
           <div class="label-container">
-            <label>Entity Type</label>
-            <div class="description">Type of entities to monitor</div>
+            <label>${l('entity_type')}</label>
+            <div class="description">${l('entity_type_description')}</div>
           </div>
           <select id="entity_type">
-            <option value="battery" ${entityType === 'battery' ? 'selected' : ''}>Battery</option>
-            <option value="contact" ${entityType === 'contact' ? 'selected' : ''}>Contact Sensors</option>
-            <option value="light" ${entityType === 'light' ? 'selected' : ''}>Lights</option>
+            <option value="battery" ${entityType === 'battery' ? 'selected' : ''}>${l('entity_type_battery')}</option>
+            <option value="contact" ${entityType === 'contact' ? 'selected' : ''}>${l('entity_type_contact')}</option>
+            <option value="light" ${entityType === 'light' ? 'selected' : ''}>${l('entity_type_light')}</option>
           </select>
         </div>
 
         <div class="option">
           <div class="label-container">
-            <label>Filter</label>
-            <div class="description">Which devices to show</div>
+            <label>${l('filter')}</label>
+            <div class="description">${l('filter_description')}</div>
           </div>
           <select id="filter">
-            <option value="alert" ${this._config.filter === 'alert' || !this._config.filter ? 'selected' : ''}>Only Alerts</option>
-            <option value="all" ${this._config.filter === 'all' ? 'selected' : ''}>All Devices</option>
+            <option value="alert" ${this._config.filter === 'alert' || !this._config.filter ? 'selected' : ''}>${l('filter_alert')}</option>
+            <option value="all" ${this._config.filter === 'all' ? 'selected' : ''}>${l('filter_all')}</option>
           </select>
         </div>
 
         <div class="option ${showBatteryThreshold ? '' : 'hidden'}" id="battery_threshold_option">
           <div class="label-container">
-            <label>Battery Threshold</label>
-            <div class="description">Low battery percentage threshold</div>
+            <label>${l('battery_threshold')}</label>
+            <div class="description">${l('battery_threshold_description')}</div>
           </div>
           <input
             id="battery_threshold"
@@ -1286,68 +1438,68 @@ class DeviceMonitorCardEditor extends HTMLElement {
 
         <div class="option">
           <div class="label-container">
-            <label>Group By</label>
-            <div class="description">Group devices by area or floor</div>
+            <label>${l('group_by')}</label>
+            <div class="description">${l('group_by_description')}</div>
           </div>
           <select id="group_by">
-            <option value="" ${!this._config.group_by ? 'selected' : ''}>None</option>
-            <option value="area" ${this._config.group_by === 'area' ? 'selected' : ''}>Area</option>
-            <option value="floor" ${this._config.group_by === 'floor' ? 'selected' : ''}>Floor</option>
+            <option value="" ${!this._config.group_by ? 'selected' : ''}>${l('group_by_none')}</option>
+            <option value="area" ${this._config.group_by === 'area' ? 'selected' : ''}>${l('group_by_area')}</option>
+            <option value="floor" ${this._config.group_by === 'floor' ? 'selected' : ''}>${l('group_by_floor')}</option>
           </select>
         </div>
 
         <div class="option">
           <div class="label-container">
-            <label>Sort By</label>
-            <div class="description">Sort order for devices</div>
+            <label>${l('sort_by')}</label>
+            <div class="description">${l('sort_by_description')}</div>
           </div>
           <select id="sort_by">
-            <option value="state" ${this._config.sort_by === 'state' || !this._config.sort_by ? 'selected' : ''}>State</option>
-            <option value="name" ${this._config.sort_by === 'name' ? 'selected' : ''}>Name</option>
-            <option value="last_changed" ${this._config.sort_by === 'last_changed' ? 'selected' : ''}>Last Changed</option>
+            <option value="state" ${this._config.sort_by === 'state' || !this._config.sort_by ? 'selected' : ''}>${l('sort_by_state')}</option>
+            <option value="name" ${this._config.sort_by === 'name' ? 'selected' : ''}>${l('sort_by_name')}</option>
+            <option value="last_changed" ${this._config.sort_by === 'last_changed' ? 'selected' : ''}>${l('sort_by_last_changed')}</option>
           </select>
         </div>
 
         <div class="option">
           <div class="label-container">
-            <label>Name Source</label>
-            <div class="description">Use device name or entity friendly name</div>
+            <label>${l('name_source')}</label>
+            <div class="description">${l('name_source_description')}</div>
           </div>
           <select id="name_source">
-            <option value="device" ${this._config.name_source === 'device' || !this._config.name_source ? 'selected' : ''}>Device Name</option>
-            <option value="entity" ${this._config.name_source === 'entity' ? 'selected' : ''}>Entity Name</option>
+            <option value="device" ${this._config.name_source === 'device' || !this._config.name_source ? 'selected' : ''}>${l('name_source_device')}</option>
+            <option value="entity" ${this._config.name_source === 'entity' ? 'selected' : ''}>${l('name_source_entity')}</option>
           </select>
         </div>
 
         <div class="option">
           <div class="label-container">
-            <label>Collapse</label>
-            <div class="description">Limit displayed devices (leave empty for no limit)</div>
+            <label>${l('collapse')}</label>
+            <div class="description">${l('collapse_description')}</div>
           </div>
           <input
             id="collapse"
             type="number"
             min="1"
             value="${this._config.collapse || ''}"
-            placeholder="No limit"
+            placeholder="${l('collapse_placeholder')}"
           />
         </div>
 
         <div class="option">
           <div class="label-container">
-            <label>Card Visibility</label>
-            <div class="description">When to display the card</div>
+            <label>${l('card_visibility')}</label>
+            <div class="description">${l('card_visibility_description')}</div>
           </div>
           <select id="card_visibility">
-            <option value="always" ${(this._config.card_visibility === 'always' || !this._config.card_visibility) ? 'selected' : ''}>Always</option>
-            <option value="alert" ${this._config.card_visibility === 'alert' ? 'selected' : ''}>Only on Alert</option>
+            <option value="always" ${(this._config.card_visibility === 'always' || !this._config.card_visibility) ? 'selected' : ''}>${l('visibility_always')}</option>
+            <option value="alert" ${this._config.card_visibility === 'alert' ? 'selected' : ''}>${l('visibility_alert')}</option>
           </select>
         </div>
 
         <div class="option ${showToggleOption ? '' : 'hidden'}" id="show_toggle_option">
           <div class="label-container">
-            <label>Show Toggle</label>
-            <div class="description">Show toggle switch to turn lights on/off</div>
+            <label>${l('show_toggle')}</label>
+            <div class="description">${l('show_toggle_description')}</div>
           </div>
           <input
             id="show_toggle"
@@ -1358,8 +1510,8 @@ class DeviceMonitorCardEditor extends HTMLElement {
 
         <div class="option">
           <div class="label-container">
-            <label>Debug Mode</label>
-            <div class="description">Enable debug logging in browser console</div>
+            <label>${l('debug_mode')}</label>
+            <div class="description">${l('debug_mode_description')}</div>
           </div>
           <input
             id="debug"
@@ -1486,11 +1638,12 @@ class DeviceMonitorBadge extends HTMLElement {
     const tapAction = this._normalizeAction(config.tap_action);
     const holdAction = this._normalizeAction(config.hold_action);
     const doubleTapAction = this._normalizeAction(config.double_tap_action);
+    const defaultTitle = getDefaultTitle(entityType) || strategy.defaultTitle;
 
     this._config = {
       entity_type: entityType,
       battery_threshold: config.battery_threshold || 20,
-      title: config.title || strategy.defaultTitle,
+      title: config.title || defaultTitle,
       badge_visibility: config.badge_visibility || 'always',
       debug: config.debug || false,
       ...config,
@@ -1514,174 +1667,13 @@ class DeviceMonitorBadge extends HTMLElement {
    * Get all devices for the configured entity type
    */
   _getDevices() {
-    if (!this._hass) {
-      return { alertDevices: [], totalDevices: 0 };
-    }
-
-    const entityType = this._config.entity_type;
-    const strategy = ENTITY_TYPES[entityType];
-    const entities = this._hass.states;
-    const devices = {};
-    const batteryLowBinarySensors = new Set();
-
-    // Special handling for battery: find binary_sensor.*_battery_low entities
-    if (entityType === 'battery') {
-      Object.keys(entities).forEach(entityId => {
-        if (entityId.includes('_battery_low') && entityId.startsWith('binary_sensor.')) {
-          batteryLowBinarySensors.add(entityId.replace('binary_sensor.', 'sensor.').replace('_battery_low', '_battery'));
-        }
-      });
-    }
-
-    // Process all entities
-    Object.keys(entities).forEach(entityId => {
-      const entity = entities[entityId];
-      const attributes = entity.attributes || {};
-
-      // Check if this entity matches our type
-      if (!strategy.detect(entityId, attributes)) {
-        return;
-      }
-
-      // Skip if entity is marked as invisible in Home Assistant UI
-      if (this._isEntityHidden(entityId)) {
-        return;
-      }
-
-      // Debug logging
-      if (this._config.debug) {
-        console.log(`[Device Monitor Badge] Found ${entityType} entity:`, {
-          entityId,
-          device_class: attributes.device_class,
-          state: entity.state
-        });
-      }
-
-      // Skip if there's a corresponding battery_low binary sensor (battery only)
-      if (entityType === 'battery' && batteryLowBinarySensors.has(entityId)) {
-        return;
-      }
-
-      // Get device information
-      let deviceId = this._getDeviceId(entityId);
-      let deviceName;
-
-      if (deviceId) {
-        // Physical device
-        deviceName = this._getDeviceName(deviceId);
-        if (!deviceName) {
-          return; // Skip if we can't get device name
-        }
-      } else if (this._isGroupEntity(entityId)) {
-        // Group entity (e.g., light.living_room_lights, contact.all_doors)
-        deviceId = entityId; // Use entity ID as unique identifier for groups
-        deviceName = this._hass.entities[entityId]?.attributes?.friendly_name || entityId;
-      } else {
-        // Skip entities without device or group
-        return;
-      }
-
-      // Evaluate state using strategy
-      const stateInfo = strategy.evaluateState({ ...entity, entity_id: entityId }, this._config);
-
-      // For light and contact types, create unique entries per entity since one device can have multiple entities
-      // For battery type, use deviceId as key to deduplicate (one battery per device)
-      let storageKey;
-      if (entityType === 'battery') {
-        storageKey = deviceId;
-      } else {
-        // For lights and contacts, use entity ID as key so we track each entity separately
-        storageKey = entityId;
-      }
-
-      // Store or update device info
-      // For batteries, prefer numeric levels; for others, just use first match
-      const existingDevice = devices[storageKey];
-      const shouldUpdate = !existingDevice ||
-        (entityType === 'battery' && stateInfo.numericValue !== null && existingDevice.stateInfo.numericValue === null);
-
-      if (shouldUpdate) {
-        devices[storageKey] = {
-          deviceId,
-          deviceName,
-          entityId,
-          stateInfo
-        };
-
-        if (this._config.debug) {
-          console.log(`[Device Monitor Badge] ${existingDevice ? 'Updated' : 'Added'} device:`, {
-            deviceName,
-            entityId,
-            stateInfo
-          });
-        }
-      }
+    const { alertDevices, totalDevices } = collectDevices(this._hass, this._config, {
+      includeArea: false,
+      debug: this._config.debug,
+      debugTag: 'Badge'
     });
 
-    // Get all devices and separate by alert status
-    let allDevices = Object.values(devices);
-    const alertDevices = allDevices.filter(d => d.stateInfo.isAlert);
-
-    // Summary debug logging
-    if (this._config.debug) {
-      console.log(`[Device Monitor Badge] Summary for ${entityType}:`, {
-        total: allDevices.length,
-        alert: alertDevices.length
-      });
-    }
-
-    return {
-      alertDevices,
-      totalDevices: allDevices.length
-    };
-  }
-
-  /**
-   * Check if an entity is hidden (marked as invisible in Home Assistant UI)
-   */
-  _isEntityHidden(entityId) {
-    if (!this._hass || !this._hass.entities) {
-      return false;
-    }
-
-    const entityRegistry = this._hass.entities[entityId];
-    // Entity is hidden if hidden property is true (when marked invisible via UI)
-    return entityRegistry?.hidden === true;
-  }
-
-  /**
-   * Check if entity is a group (light group, contact group, or sensor group)
-   */
-  _isGroupEntity(entityId) {
-    return entityId.startsWith('light.') || entityId.startsWith('contact.') || entityId.startsWith('sensor.');
-  }
-
-  /**
-   * Get device ID for an entity
-   */
-  _getDeviceId(entityId) {
-    if (!this._hass || !this._hass.entities) {
-      return null;
-    }
-
-    const entity = this._hass.entities[entityId];
-    return entity?.device_id || null;
-  }
-
-  /**
-   * Get device name from device registry
-   */
-  _getDeviceName(deviceId) {
-    if (!this._hass || !this._hass.devices) {
-      return null;
-    }
-
-    const device = this._hass.devices[deviceId];
-    if (!device) {
-      return null;
-    }
-
-    return device.name_by_user || device.name || deviceId;
+    return { alertDevices, totalDevices };
   }
 
   /**
@@ -1757,7 +1749,7 @@ class DeviceMonitorBadge extends HTMLElement {
         }
         break;
 
-      case 'more-info':
+      case 'more-info': {
         // Prefer target.entity_id when provided to match HA semantics
         let entityId = normalizedAction.entity_id || null;
         if (!entityId && normalizedAction.target && normalizedAction.target.entity_id) {
@@ -1771,6 +1763,7 @@ class DeviceMonitorBadge extends HTMLElement {
           detail: { entityId: entityId }
         }));
         break;
+      }
 
       default:
         if (this._config.debug) {
@@ -1807,10 +1800,12 @@ class DeviceMonitorBadge extends HTMLElement {
     if (!this._hass) {
       // In edit mode without hass, show a placeholder
       if (isInEditMode) {
-        const strategy = ENTITY_TYPES[this._config.entity_type || 'battery'];
+        const entityType = this._config.entity_type || 'battery';
+        const strategy = ENTITY_TYPES[entityType];
         const icon = strategy.getIcon({});
         const color = '#757575';
-        const badgeText = `${this._config.title || 'Device Monitor'} (0/0)`;
+        const defaultTitle = getDefaultTitle(entityType);
+        const badgeText = `${this._config.title || defaultTitle} (0/0)`;
 
         this.shadowRoot.innerHTML = `
           <style>
@@ -1836,6 +1831,18 @@ class DeviceMonitorBadge extends HTMLElement {
       return;
     }
 
+    // Always wait for translations to be loaded before rendering
+    // This prevents race conditions where translations aren't ready yet
+    localizationHelper.setLanguage(this._hass).then(() => {
+      this._renderBadge();
+    }).catch(err => {
+      console.warn('[Device Monitor Badge] Failed to set language:', err);
+      this._renderBadge();
+    });
+  }
+
+  _renderBadge() {
+    const isInEditMode = this._isInEditMode();
     const { alertDevices, totalDevices } = this._getDevices();
     const strategy = ENTITY_TYPES[this._config.entity_type];
     const alertCount = alertDevices.length;
@@ -1882,7 +1889,7 @@ class DeviceMonitorBadge extends HTMLElement {
         ` : ''}
       </style>
 
-      <ha-badge id="badge" ${hasAnyAction ? `role="button" tabindex="0"` : ''}>
+      <ha-badge id="badge" ${hasAnyAction ? 'role="button" tabindex="0"' : ''}>
         <ha-icon slot="icon" icon="${icon}"></ha-icon>
         ${badgeText}
       </ha-badge>
@@ -1994,15 +2001,44 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
       : { action: 'none' };
 
     this._config = { ...config, tap_action: tapAction };
-    
+
     // Ensure tap_action is initialized
     if (!this._config.tap_action) {
       this._config.tap_action = { action: 'none' };
     }
 
     if (!this._rendered) {
-      this.render();
+      this._renderEditor();
       this._rendered = true;
+    }
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    // Log hass object for debugging
+    if (hass && hass.locale) {
+      console.log('[Device Monitor BadgeEditor] Hass locale detected:', hass.locale);
+    }
+    // Trigger re-render when language might have changed
+    if (this._rendered && this._config) {
+      this._renderEditor();
+    }
+  }
+
+  _renderEditor() {
+    // Load translations and wait before rendering
+    if (this._hass) {
+      localizationHelper.setLanguage(this._hass).then(() => {
+        // Render after language is loaded
+        this.render();
+      }).catch(err => {
+        console.warn('[Device Monitor BadgeEditor] Failed to set language:', err);
+        // Still render on error
+        this.render();
+      });
+    } else {
+      // Render immediately if no hass
+      this.render();
     }
   }
 
@@ -2019,7 +2055,7 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
     const dispatchEvent = () => {
       const event = new Event('config-changed', {
         bubbles: true,
-        composed: true,
+        composed: true
       });
       event.detail = { config: newConfig };
       this.dispatchEvent(event);
@@ -2039,6 +2075,8 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
     }
 
     try {
+      const l = (key) => localizationHelper.localize(`editor.${key}`);
+
       // Ensure tap_action is initialized before rendering
       if (!this._config.tap_action) {
         this._config.tap_action = { action: 'none' };
@@ -2106,33 +2144,33 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
       <div class="badge-config">
         <div class="option">
           <div class="label-container">
-            <label>Title</label>
-            <div class="description">Badge title text</div>
+            <label>${l('title')}</label>
+            <div class="description">${l('title_description')}</div>
           </div>
           <input
             id="title"
             type="text"
             value="${this._config.title || ''}"
-            placeholder="Auto"
+            placeholder="${l('auto_placeholder')}"
           />
         </div>
 
         <div class="option">
           <div class="label-container">
-            <label>Entity Type</label>
-            <div class="description">Type of entities to monitor</div>
+            <label>${l('entity_type')}</label>
+            <div class="description">${l('entity_type_description')}</div>
           </div>
           <select id="entity_type">
-            <option value="battery" ${entityType === 'battery' ? 'selected' : ''}>Battery</option>
-            <option value="contact" ${entityType === 'contact' ? 'selected' : ''}>Contact Sensors</option>
-            <option value="light" ${entityType === 'light' ? 'selected' : ''}>Lights</option>
+            <option value="battery" ${entityType === 'battery' ? 'selected' : ''}>${l('entity_type_battery')}</option>
+            <option value="contact" ${entityType === 'contact' ? 'selected' : ''}>${l('entity_type_contact')}</option>
+            <option value="light" ${entityType === 'light' ? 'selected' : ''}>${l('entity_type_light')}</option>
           </select>
         </div>
 
         <div class="option ${showBatteryThreshold ? '' : 'hidden'}" id="battery_threshold_option">
           <div class="label-container">
-            <label>Battery Threshold</label>
-            <div class="description">Low battery percentage threshold</div>
+            <label>${l('battery_threshold')}</label>
+            <div class="description">${l('battery_threshold_description')}</div>
           </div>
           <input
             id="battery_threshold"
@@ -2145,86 +2183,86 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
 
         <div class="option">
           <div class="label-container">
-            <label>Card Visibility</label>
-            <div class="description">When to display the card</div>
+            <label>${l('card_visibility')}</label>
+            <div class="description">${l('badge_visibility_description')}</div>
           </div>
           <select id="badge_visibility">
-            <option value="always" ${(this._config.badge_visibility === 'always' || !this._config.badge_visibility) ? 'selected' : ''}>Always</option>
-            <option value="alert" ${this._config.badge_visibility === 'alert' ? 'selected' : ''}>Only on Alert</option>
+            <option value="always" ${(this._config.badge_visibility === 'always' || !this._config.badge_visibility) ? 'selected' : ''}>${l('visibility_always')}</option>
+            <option value="alert" ${this._config.badge_visibility === 'alert' ? 'selected' : ''}>${l('visibility_alert')}</option>
           </select>
         </div>
 
         <div class="option">
           <div class="label-container">
-            <label>Tap Action</label>
-            <div class="description">Action when badge is tapped</div>
+            <label>${l('tap_action')}</label>
+            <div class="description">${l('tap_action_description')}</div>
           </div>
           <select id="tap_action_type">
-            <option value="none" ${tapActionType === 'none' ? 'selected' : ''}>None</option>
-            <option value="navigate" ${tapActionType === 'navigate' ? 'selected' : ''}>Navigate</option>
-            <option value="url" ${tapActionType === 'url' ? 'selected' : ''}>URL</option>
-            <option value="call-service" ${tapActionType === 'call-service' ? 'selected' : ''}>Call Service</option>
-            <option value="toggle" ${tapActionType === 'toggle' ? 'selected' : ''}>Toggle</option>
-            <option value="more-info" ${tapActionType === 'more-info' ? 'selected' : ''}>More Info</option>
+            <option value="none" ${tapActionType === 'none' ? 'selected' : ''}>${l('tap_action_none')}</option>
+            <option value="navigate" ${tapActionType === 'navigate' ? 'selected' : ''}>${l('tap_action_navigate')}</option>
+            <option value="url" ${tapActionType === 'url' ? 'selected' : ''}>${l('tap_action_url')}</option>
+            <option value="call-service" ${tapActionType === 'call-service' ? 'selected' : ''}>${l('tap_action_call_service')}</option>
+            <option value="toggle" ${tapActionType === 'toggle' ? 'selected' : ''}>${l('tap_action_toggle')}</option>
+            <option value="more-info" ${tapActionType === 'more-info' ? 'selected' : ''}>${l('tap_action_more_info')}</option>
           </select>
         </div>
 
         <div class="option ${tapActionType !== 'navigate' ? 'hidden' : ''}" id="tap_action_navigate_option">
           <div class="label-container">
-            <label>Navigation Path</label>
-            <div class="description">Path to navigate to (e.g., /lovelace/0)</div>
+            <label>${l('navigation_path')}</label>
+            <div class="description">${l('navigation_path_description')}</div>
           </div>
           <input
             id="tap_action_navigation_path"
             type="text"
             value="${(tapAction.navigation_path) || ''}"
-            placeholder="/lovelace/0"
+            placeholder="${l('navigation_path_placeholder')}"
           />
         </div>
 
         <div class="option ${tapActionType !== 'url' ? 'hidden' : ''}" id="tap_action_url_option">
           <div class="label-container">
-            <label>URL Path</label>
-            <div class="description">URL to open (e.g., https://example.com or /local/page.html)</div>
+            <label>${l('url_path')}</label>
+            <div class="description">${l('url_path_description')}</div>
           </div>
           <input
             id="tap_action_url_path"
             type="text"
             value="${(tapAction.url_path) || ''}"
-            placeholder="https://example.com"
+            placeholder="${l('url_path_placeholder')}"
           />
         </div>
 
         <div class="option ${tapActionType !== 'call-service' ? 'hidden' : ''}" id="tap_action_service_option">
           <div class="label-container">
-            <label>Service</label>
-            <div class="description">Service to call (e.g., light.turn_on)</div>
+            <label>${l('service')}</label>
+            <div class="description">${l('service_description')}</div>
           </div>
           <input
             id="tap_action_service"
             type="text"
             value="${(tapAction.service) || ''}"
-            placeholder="light.turn_on"
+            placeholder="${l('service_placeholder')}"
           />
         </div>
 
         <div class="option ${(tapActionType !== 'toggle' && tapActionType !== 'more-info') ? 'hidden' : ''}" id="tap_action_entity_option">
           <div class="label-container">
-            <label>Entity ID</label>
-            <div class="description">Entity ID for toggle or more-info action</div>
+            <label>${l('entity_id')}</label>
+            <div class="description">${l('entity_id_description')}</div>
           </div>
           <input
             id="tap_action_entity_id"
             type="text"
             value="${(tapAction.entity_id) || ''}"
-            placeholder="light.living_room"
+            placeholder="${l('entity_id_placeholder')}"
           />
         </div>
 
         <div class="option">
           <div class="label-container">
-            <label>Debug Mode</label>
-            <div class="description">Enable debug logging in browser console</div>
+            <label>${l('debug_mode')}</label>
+            <div class="description">${l('debug_mode_description')}</div>
           </div>
           <input
             id="debug"
@@ -2235,137 +2273,137 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
       </div>
     `;
 
-    // Helper function to handle config updates
-    const updateConfig = (configUpdater, debounce = false) => {
-      return (ev) => {
-        const newConfig = {
-          ...this._config,
-          tap_action: this._config.tap_action ? { ...this._config.tap_action } : { action: 'none' }
+      // Helper function to handle config updates
+      const updateConfig = (configUpdater, debounce = false) => {
+        return (ev) => {
+          const newConfig = {
+            ...this._config,
+            tap_action: this._config.tap_action ? { ...this._config.tap_action } : { action: 'none' }
+          };
+          configUpdater(newConfig, ev.target);
+          this.configChanged(newConfig, !debounce); // invert debounce flag for immediate parameter
+
+          // Re-render if entity type changed (to show/hide battery threshold)
+          if (ev.target.id === 'entity_type') {
+            this._rendered = false;
+            this.setConfig(newConfig);
+          }
         };
-        configUpdater(newConfig, ev.target);
-        this.configChanged(newConfig, !debounce); // invert debounce flag for immediate parameter
-
-        // Re-render if entity type changed (to show/hide battery threshold)
-        if (ev.target.id === 'entity_type') {
-          this._rendered = false;
-          this.setConfig(newConfig);
-        }
       };
-    };
 
-    // Add event listeners using oninput/onchange to avoid multiple listeners
-    const titleInput = this.querySelector('#title');
-    const entityTypeInput = this.querySelector('#entity_type');
-    const thresholdInput = this.querySelector('#battery_threshold');
-    const badgeVisibilityInput = this.querySelector('#badge_visibility');
-    const tapActionTypeInput = this.querySelector('#tap_action_type');
-    const tapActionNavigateInput = this.querySelector('#tap_action_navigation_path');
-    const tapActionUrlInput = this.querySelector('#tap_action_url_path');
-    const tapActionServiceInput = this.querySelector('#tap_action_service');
-    const tapActionEntityInput = this.querySelector('#tap_action_entity_id');
-    const debugInput = this.querySelector('#debug');
+      // Add event listeners using oninput/onchange to avoid multiple listeners
+      const titleInput = this.querySelector('#title');
+      const entityTypeInput = this.querySelector('#entity_type');
+      const thresholdInput = this.querySelector('#battery_threshold');
+      const badgeVisibilityInput = this.querySelector('#badge_visibility');
+      const tapActionTypeInput = this.querySelector('#tap_action_type');
+      const tapActionNavigateInput = this.querySelector('#tap_action_navigation_path');
+      const tapActionUrlInput = this.querySelector('#tap_action_url_path');
+      const tapActionServiceInput = this.querySelector('#tap_action_service');
+      const tapActionEntityInput = this.querySelector('#tap_action_entity_id');
+      const debugInput = this.querySelector('#debug');
 
-    // Helper to update tap action visibility
-    const updateTapActionVisibility = (actionType) => {
-      const navigateOption = this.querySelector('#tap_action_navigate_option');
-      const urlOption = this.querySelector('#tap_action_url_option');
-      const serviceOption = this.querySelector('#tap_action_service_option');
-      const entityOption = this.querySelector('#tap_action_entity_option');
+      // Helper to update tap action visibility
+      const updateTapActionVisibility = (actionType) => {
+        const navigateOption = this.querySelector('#tap_action_navigate_option');
+        const urlOption = this.querySelector('#tap_action_url_option');
+        const serviceOption = this.querySelector('#tap_action_service_option');
+        const entityOption = this.querySelector('#tap_action_entity_option');
 
-      if (navigateOption) navigateOption.classList.toggle('hidden', actionType !== 'navigate');
-      if (urlOption) urlOption.classList.toggle('hidden', actionType !== 'url');
-      if (serviceOption) serviceOption.classList.toggle('hidden', actionType !== 'call-service');
-      if (entityOption) entityOption.classList.toggle('hidden', actionType !== 'toggle' && actionType !== 'more-info');
-    };
+        if (navigateOption) navigateOption.classList.toggle('hidden', actionType !== 'navigate');
+        if (urlOption) urlOption.classList.toggle('hidden', actionType !== 'url');
+        if (serviceOption) serviceOption.classList.toggle('hidden', actionType !== 'call-service');
+        if (entityOption) entityOption.classList.toggle('hidden', actionType !== 'toggle' && actionType !== 'more-info');
+      };
 
-    // Text and number inputs - debounced to prevent focus loss
-    if (titleInput) {
-      titleInput.oninput = updateConfig((config, target) => {
-        config.title = target.value;
-      }, true);
-    }
+      // Text and number inputs - debounced to prevent focus loss
+      if (titleInput) {
+        titleInput.oninput = updateConfig((config, target) => {
+          config.title = target.value;
+        }, true);
+      }
 
-    if (thresholdInput) {
-      thresholdInput.oninput = updateConfig((config, target) => {
-        config.battery_threshold = Number(target.value);
-      }, true);
-    }
+      if (thresholdInput) {
+        thresholdInput.oninput = updateConfig((config, target) => {
+          config.battery_threshold = Number(target.value);
+        }, true);
+      }
 
-    if (tapActionNavigateInput) {
-      tapActionNavigateInput.oninput = updateConfig((config, target) => {
-        if (!config.tap_action) config.tap_action = {};
-        config.tap_action.navigation_path = target.value;
-      }, true);
-    }
-
-    if (tapActionUrlInput) {
-      tapActionUrlInput.oninput = updateConfig((config, target) => {
-        if (!config.tap_action) config.tap_action = {};
-        config.tap_action.url_path = target.value;
-      }, true);
-    }
-
-    if (tapActionServiceInput) {
-      tapActionServiceInput.oninput = updateConfig((config, target) => {
-        if (!config.tap_action) config.tap_action = {};
-        config.tap_action.service = target.value;
-      }, true);
-    }
-
-    if (tapActionEntityInput) {
-      tapActionEntityInput.oninput = updateConfig((config, target) => {
-        if (!config.tap_action) config.tap_action = {};
-        config.tap_action.entity_id = target.value;
-      }, true);
-    }
-
-    // Selects and checkboxes - immediate updates
-    if (entityTypeInput) {
-      entityTypeInput.onchange = updateConfig((config, target) => {
-        config.entity_type = target.value;
-        // Update title to match new entity type default if current title matches old default
-        const strategy = ENTITY_TYPES[target.value];
-        if (strategy && !config.title) {
-          config.title = strategy.defaultTitle;
-        }
-      }, false);
-    }
-
-    if (badgeVisibilityInput) {
-      badgeVisibilityInput.onchange = updateConfig((config, target) => {
-        config.badge_visibility = target.value;
-      }, false);
-    }
-
-    if (tapActionTypeInput) {
-      tapActionTypeInput.onchange = updateConfig((config, target) => {
-        const actionType = target.value;
-        if (actionType === 'none') {
-          config.tap_action = { action: 'none' };
-        } else {
+      if (tapActionNavigateInput) {
+        tapActionNavigateInput.oninput = updateConfig((config, target) => {
           if (!config.tap_action) config.tap_action = {};
-          config.tap_action.action = actionType;
-          // Clear fields that don't apply to this action
-          if (actionType !== 'navigate') delete config.tap_action.navigation_path;
-          if (actionType !== 'url') delete config.tap_action.url_path;
-          if (actionType !== 'call-service') delete config.tap_action.service;
-          if (actionType !== 'toggle' && actionType !== 'more-info') delete config.tap_action.entity_id;
-        }
-        // Update visibility immediately for instant feedback
-        updateTapActionVisibility(actionType);
+          config.tap_action.navigation_path = target.value;
+        }, true);
+      }
+
+      if (tapActionUrlInput) {
+        tapActionUrlInput.oninput = updateConfig((config, target) => {
+          if (!config.tap_action) config.tap_action = {};
+          config.tap_action.url_path = target.value;
+        }, true);
+      }
+
+      if (tapActionServiceInput) {
+        tapActionServiceInput.oninput = updateConfig((config, target) => {
+          if (!config.tap_action) config.tap_action = {};
+          config.tap_action.service = target.value;
+        }, true);
+      }
+
+      if (tapActionEntityInput) {
+        tapActionEntityInput.oninput = updateConfig((config, target) => {
+          if (!config.tap_action) config.tap_action = {};
+          config.tap_action.entity_id = target.value;
+        }, true);
+      }
+
+      // Selects and checkboxes - immediate updates
+      if (entityTypeInput) {
+        entityTypeInput.onchange = updateConfig((config, target) => {
+          config.entity_type = target.value;
+          // Update title to match new entity type default if current title matches old default
+          const strategy = ENTITY_TYPES[target.value];
+          if (strategy && !config.title) {
+            config.title = strategy.defaultTitle;
+          }
+        }, false);
+      }
+
+      if (badgeVisibilityInput) {
+        badgeVisibilityInput.onchange = updateConfig((config, target) => {
+          config.badge_visibility = target.value;
+        }, false);
+      }
+
+      if (tapActionTypeInput) {
+        tapActionTypeInput.onchange = updateConfig((config, target) => {
+          const actionType = target.value;
+          if (actionType === 'none') {
+            config.tap_action = { action: 'none' };
+          } else {
+            if (!config.tap_action) config.tap_action = {};
+            config.tap_action.action = actionType;
+            // Clear fields that don't apply to this action
+            if (actionType !== 'navigate') delete config.tap_action.navigation_path;
+            if (actionType !== 'url') delete config.tap_action.url_path;
+            if (actionType !== 'call-service') delete config.tap_action.service;
+            if (actionType !== 'toggle' && actionType !== 'more-info') delete config.tap_action.entity_id;
+          }
+          // Update visibility immediately for instant feedback
+          updateTapActionVisibility(actionType);
         // Re-render will also happen to ensure everything is in sync
-      }, false);
-    }
+        }, false);
+      }
 
-    // Initialize tap action visibility on first render
-    const currentAction = (this._config.tap_action && this._config.tap_action.action) || 'none';
-    updateTapActionVisibility(currentAction);
+      // Initialize tap action visibility on first render
+      const currentAction = (this._config.tap_action && this._config.tap_action.action) || 'none';
+      updateTapActionVisibility(currentAction);
 
-    if (debugInput) {
-      debugInput.onchange = updateConfig((config, target) => {
-        config.debug = target.checked;
-      }, false);
-    }
+      if (debugInput) {
+        debugInput.onchange = updateConfig((config, target) => {
+          config.debug = target.checked;
+        }, false);
+      }
     } catch (error) {
       console.error('[Device Monitor Badge Editor] Render error:', error);
       this.innerHTML = `
@@ -2391,7 +2429,7 @@ window.customCards.push({
   name: 'Device Monitor Card',
   description: 'Monitor batteries, contact sensors (doors/windows), and lights with alerts and grouping',
   preview: false,
-  documentationURL: 'https://github.com/molant/battery-monitor-card',
+  documentationURL: 'https://github.com/molant/device-monitor-card'
 });
 
 // Register badge with Home Assistant - also in customCards as badges are a type of card
@@ -2400,7 +2438,7 @@ window.customCards.push({
   name: 'Device Monitor Badge',
   description: 'Compact badge showing device alert counts for batteries, contact sensors, and lights',
   preview: false,
-  documentationURL: 'https://github.com/molant/battery-monitor-card',
+  documentationURL: 'https://github.com/molant/device-monitor-card'
 });
 
 // Also register as a badge element for the badge picker
@@ -2440,7 +2478,7 @@ window.customBadges.push({
   name: 'Device Monitor Badge',
   description: 'Low battery (3/5) · Doors/Windows open (4/10) · Lights on (2/8)',
   preview: true,
-  getPreviewElement: () => document.createElement('device-monitor-badge-preview'),
+  getPreviewElement: () => document.createElement('device-monitor-badge-preview')
 });
 
 console.info(

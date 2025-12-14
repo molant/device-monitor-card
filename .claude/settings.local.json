@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "Bash(node -c:*)",
+      "Bash(node -e:*)",
+      "Bash(node --check:*)"
     ]
   }
 }
