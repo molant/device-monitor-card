@@ -12,6 +12,8 @@
     "filter_description": "Qué dispositivos mostrar",
     "filter_alert": "Solo Alertas",
     "filter_all": "Todos los Dispositivos",
+    "show_unavailable": "Mostrar también dispositivos no disponibles",
+    "show_unavailable_description": "Incluir dispositivos cuyo estado sea no disponible",
     "battery_threshold": "Umbral de Batería",
     "battery_threshold_description": "Porcentaje de batería baja",
     "group_by": "Agrupar Por",

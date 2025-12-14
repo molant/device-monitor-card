@@ -193,13 +193,13 @@ const registryHelpers = {
 
 const collectDevices = (hass, config, options = {}) => {
   if (!hass) {
-    return { alertDevices: [], normalDevices: [], totalDevices: 0, allDevices: [] };
+    return { alertDevices: [], normalDevices: [], unavailableDevices: [], totalDevices: 0, allDevices: [] };
   }
 
   const entityType = config.entity_type || 'battery';
   const strategy = ENTITY_TYPES[entityType];
   if (!strategy) {
-    return { alertDevices: [], normalDevices: [], totalDevices: 0, allDevices: [] };
+    return { alertDevices: [], normalDevices: [], unavailableDevices: [], totalDevices: 0, allDevices: [] };
   }
 
   const includeArea = options.includeArea || false;
@@ -270,7 +270,11 @@ const collectDevices = (hass, config, options = {}) => {
     }
 
     const entityName = attributes.friendly_name || entityId;
-    const stateInfo = strategy.evaluateState({ ...entity, entity_id: entityId }, config, hass);
+    const isUnavailable = entity?.state === 'unavailable';
+    const stateInfo = {
+      ...strategy.evaluateState({ ...entity, entity_id: entityId }, config, hass),
+      isUnavailable
+    };
     const storageKey = entityType === 'battery' ? deviceId : entityId;
 
     const existingDevice = devices[storageKey];
@@ -306,6 +310,7 @@ const collectDevices = (hass, config, options = {}) => {
   const allDevices = Object.values(devices);
   const alertDevices = allDevices.filter(d => d.stateInfo.isAlert);
   const normalDevices = allDevices.filter(d => !d.stateInfo.isAlert);
+  const unavailableDevices = allDevices.filter(d => d.stateInfo.isUnavailable);
 
   if (debug) {
     console.log(`[Device Monitor ${debugTag}] Summary for ${entityType}:`, {
@@ -318,6 +323,7 @@ const collectDevices = (hass, config, options = {}) => {
   return {
     alertDevices,
     normalDevices,
+    unavailableDevices,
     allDevices,
     totalDevices: allDevices.length
   };
@@ -403,6 +409,7 @@ const ENTITY_TYPES = {
 
     // Get color for battery state
     getColor: (state) => {
+      if (state.isUnavailable) return 'var(--disabled-text-color, #9e9e9e)';
       if (state.value === 'low') return '#ff0000';
       if (state.value === 'ok') return '#44739e';
       if (state.numericValue === null) return '#ffa500';
@@ -488,6 +495,7 @@ const ENTITY_TYPES = {
 
     // Get color for contact sensor state
     getColor: (state) => {
+      if (state.isUnavailable) return 'var(--disabled-text-color, #9e9e9e)';
       return state.isAlert ? '#ffa500' : 'var(--success-color, #4caf50)';
     },
 
@@ -533,6 +541,7 @@ const ENTITY_TYPES = {
 
     // Get color for light state
     getColor: (state) => {
+      if (state.isUnavailable) return 'var(--disabled-text-color, #9e9e9e)';
       return state.isAlert ? '#ffa500' : 'var(--disabled-text-color, #9e9e9e)';
     },
 
@@ -579,6 +588,7 @@ class DeviceMonitorCard extends HTMLElement {
     this._config = {
       entity_type: entityType,
       filter: config.filter || 'alert',
+      show_unavailable: config.show_unavailable || false,
       battery_threshold: config.battery_threshold || 20,
       title: config.title || defaultTitle,
       debug: config.debug || false,
@@ -612,14 +622,33 @@ class DeviceMonitorCard extends HTMLElement {
    * Get all devices for the configured entity type
    */
   _getDevices() {
-    const { alertDevices, normalDevices, totalDevices } = collectDevices(this._hass, this._config, {
+    const { alertDevices, normalDevices, unavailableDevices, totalDevices } = collectDevices(this._hass, this._config, {
       includeArea: true,
       debug: this._config.debug,
       debugTag: 'Card'
     });
 
-    const groupedAlertDevices = this._groupDevices(alertDevices);
-    const groupedNormalDevices = this._groupDevices(normalDevices);
+    const includeUnavailable = this._config.show_unavailable;
+
+    // Clone arrays to avoid mutating original collections
+    let alerts = [...alertDevices];
+    let normals = [...normalDevices];
+
+    if (includeUnavailable) {
+      const unavailableIds = new Set(unavailableDevices.map(d => d.entityId));
+      const alertIds = new Set(alerts.map(d => d.entityId));
+
+      unavailableDevices.forEach(device => {
+        if (!alertIds.has(device.entityId)) {
+          alerts.push(device);
+        }
+      });
+
+      normals = normals.filter(d => !unavailableIds.has(d.entityId));
+    }
+
+    const groupedAlertDevices = this._groupDevices(alerts);
+    const groupedNormalDevices = this._groupDevices(normals);
 
     const sortedAlertDevices = this._sortDevices(groupedAlertDevices);
     const sortedNormalDevices = this._sortDevices(groupedNormalDevices);
@@ -1246,6 +1275,7 @@ class DeviceMonitorCard extends HTMLElement {
     return {
       entity_type: 'battery',
       filter: 'alert',
+      show_unavailable: false,
       battery_threshold: 20,
       title: 'Low Battery',
       card_visibility: 'always',
@@ -1439,6 +1469,18 @@ class DeviceMonitorCardEditor extends HTMLElement {
           </select>
         </div>
 
+        <div class="option">
+          <div class="label-container">
+            <label>${l('show_unavailable')}</label>
+            <div class="description">${l('show_unavailable_description')}</div>
+          </div>
+          <input
+            id="show_unavailable"
+            type="checkbox"
+            ${this._config.show_unavailable ? 'checked' : ''}
+          />
+        </div>
+
         <div class="option ${showBatteryThreshold ? '' : 'hidden'}" id="battery_threshold_option">
           <div class="label-container">
             <label>${l('battery_threshold')}</label>
@@ -1558,6 +1600,7 @@ class DeviceMonitorCardEditor extends HTMLElement {
     const titleInput = this.querySelector('#title');
     const entityTypeInput = this.querySelector('#entity_type');
     const filterInput = this.querySelector('#filter');
+    const showUnavailableInput = this.querySelector('#show_unavailable');
     const thresholdInput = this.querySelector('#battery_threshold');
     const groupByInput = this.querySelector('#group_by');
     const sortByInput = this.querySelector('#sort_by');
@@ -1594,6 +1637,12 @@ class DeviceMonitorCardEditor extends HTMLElement {
     filterInput.onchange = updateConfig((config, target) => {
       config.filter = target.value;
     }, false);
+
+    if (showUnavailableInput) {
+      showUnavailableInput.onchange = updateConfig((config, target) => {
+        config.show_unavailable = target.checked;
+      }, false);
+    }
 
     groupByInput.onchange = updateConfig((config, target) => {
       config.group_by = target.value || null;
@@ -1662,6 +1711,7 @@ class DeviceMonitorBadge extends HTMLElement {
       battery_threshold: config.battery_threshold || 20,
       title: config.title || defaultTitle,
       badge_visibility: config.badge_visibility || 'always',
+      show_unavailable: config.show_unavailable || false,
       debug: config.debug || false,
       ...config,
       tap_action: tapAction,
@@ -1684,13 +1734,25 @@ class DeviceMonitorBadge extends HTMLElement {
    * Get all devices for the configured entity type
    */
   _getDevices() {
-    const { alertDevices, totalDevices } = collectDevices(this._hass, this._config, {
+    const { alertDevices, unavailableDevices, totalDevices } = collectDevices(this._hass, this._config, {
       includeArea: false,
       debug: this._config.debug,
       debugTag: 'Badge'
     });
 
-    return { alertDevices, totalDevices };
+    const includeUnavailable = this._config.show_unavailable;
+    let alerts = [...alertDevices];
+
+    if (includeUnavailable) {
+      const alertIds = new Set(alerts.map(d => d.entityId));
+      unavailableDevices.forEach(device => {
+        if (!alertIds.has(device.entityId)) {
+          alerts.push(device);
+        }
+      });
+    }
+
+    return { alertDevices: alerts, totalDevices };
   }
 
   /**
@@ -1987,6 +2049,7 @@ class DeviceMonitorBadge extends HTMLElement {
       battery_threshold: 20,
       title: 'Low Battery',
       badge_visibility: 'always',
+      show_unavailable: false,
       debug: false,
       tap_action: { action: 'none' },
       hold_action: { action: 'none' },
@@ -2200,6 +2263,18 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
 
         <div class="option">
           <div class="label-container">
+            <label>${l('show_unavailable')}</label>
+            <div class="description">${l('show_unavailable_description')}</div>
+          </div>
+          <input
+            id="show_unavailable"
+            type="checkbox"
+            ${this._config.show_unavailable ? 'checked' : ''}
+          />
+        </div>
+
+        <div class="option">
+          <div class="label-container">
             <label>${l('card_visibility')}</label>
             <div class="description">${l('badge_visibility_description')}</div>
           </div>
@@ -2312,6 +2387,7 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
       const titleInput = this.querySelector('#title');
       const entityTypeInput = this.querySelector('#entity_type');
       const thresholdInput = this.querySelector('#battery_threshold');
+      const showUnavailableInput = this.querySelector('#show_unavailable');
       const badgeVisibilityInput = this.querySelector('#badge_visibility');
       const tapActionTypeInput = this.querySelector('#tap_action_type');
       const tapActionNavigateInput = this.querySelector('#tap_action_navigation_path');
@@ -2344,6 +2420,12 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
         thresholdInput.oninput = updateConfig((config, target) => {
           config.battery_threshold = Number(target.value);
         }, true);
+      }
+
+      if (showUnavailableInput) {
+        showUnavailableInput.onchange = updateConfig((config, target) => {
+          config.show_unavailable = target.checked;
+        }, false);
       }
 
       if (tapActionNavigateInput) {

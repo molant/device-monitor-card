@@ -12,6 +12,8 @@
     "filter_description": "Welche Geräte angezeigt werden",
     "filter_alert": "Nur Warnungen",
     "filter_all": "Alle Geräte",
+    "show_unavailable": "Auch nicht verfügbare Geräte anzeigen",
+    "show_unavailable_description": "Geräte mit Status \"nicht verfügbar\" einbeziehen",
     "battery_threshold": "Batterieschwelle",
     "battery_threshold_description": "Grenzwert für niedrige Batterie in Prozent",
     "group_by": "Gruppieren nach",
