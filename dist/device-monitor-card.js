@@ -438,6 +438,7 @@ const ENTITY_TYPES = {
       return deviceClass === 'door' ||
         deviceClass === 'window' ||
         deviceClass === 'garage_door' ||
+        deviceClass === 'lock' ||
         deviceClass === 'opening';
     },
 
@@ -461,6 +462,9 @@ const ENTITY_TYPES = {
 
       if (deviceClass === 'window') {
         return isOpen ? 'mdi:window-open' : 'mdi:window-closed';
+      }
+      if (deviceClass === 'lock') {
+        return isOpen ? 'mdi:door-open' : 'mdi:door-closed-lock';
       }
       if (deviceClass === 'garage_door') {
         return isOpen ? 'mdi:garage-open' : 'mdi:garage';
