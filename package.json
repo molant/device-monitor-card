@@ -5,6 +5,7 @@
   "main": "dist/device-monitor-card.js",
   "scripts": {
     "test": "node --check dist/device-monitor-card.js",
+    "lint": "eslint .",
     "release": "./scripts/create-release.sh",
     "prerelease": "./scripts/create-prerelease.sh",
     "delete-prereleases": "./scripts/delete-prerelease.sh"
@@ -31,5 +32,8 @@
   "bugs": {
     "url": "https://github.com/molant/device-monitor-card/issues"
   },
-  "homepage": "https://github.com/molant/device-monitor-card#readme"
+  "homepage": "https://github.com/molant/device-monitor-card#readme",
+  "devDependencies": {
+    "eslint": "^8.57.1"
+  }
 }

@@ -737,7 +737,7 @@ class DeviceMonitorCard extends HTMLElement {
       // For groups, show the entity details in more-info dialog
       const event = new Event('hass-more-info', {
         bubbles: true,
-        composed: true,
+        composed: true
       });
       event.detail = { entityId: deviceId };
       this.dispatchEvent(event);
@@ -745,7 +745,7 @@ class DeviceMonitorCard extends HTMLElement {
       // For physical devices, navigate to device page
       const event = new Event('hass-more-info', {
         bubbles: true,
-        composed: true,
+        composed: true
       });
       event.detail = { entityId: null };
       this.dispatchEvent(event);
@@ -1164,28 +1164,28 @@ class DeviceMonitorCard extends HTMLElement {
           ` : `
             <div class="device-list">
               ${displayDevices.map((device, index) => {
-      // Handle group headers
-      if (device.isGroupHeader) {
-        return this._renderGroupHeader(device.groupName);
-      }
+    // Handle group headers
+    if (device.isGroupHeader) {
+      return this._renderGroupHeader(device.groupName);
+    }
 
-      // Add divider between alert and normal devices (only if not grouped)
-      const needsDivider = showAll &&
+    // Add divider between alert and normal devices (only if not grouped)
+    const needsDivider = showAll &&
         !this._config.group_by &&
         index === alertDevices.length &&
         alertDevices.length > 0 &&
         normalDevices.length > 0;
 
-      return (needsDivider ? '<div class="divider"></div>' : '') +
+    return (needsDivider ? '<div class="divider"></div>' : '') +
         this._renderDevice(device);
-    }).join('')}
+  }).join('')}
             </div>
             ${shouldCollapse ? `
               <div class="expand-button" id="expand-button">
                 ${this._expanded
-          ? `Show less<ha-icon icon="mdi:chevron-up"></ha-icon>`
-          : `Show ${hiddenCount} more<ha-icon icon="mdi:chevron-down"></ha-icon>`
-        }
+    ? 'Show less<ha-icon icon="mdi:chevron-up"></ha-icon>'
+    : `Show ${hiddenCount} more<ha-icon icon="mdi:chevron-down"></ha-icon>`
+}
               </div>
             ` : ''}
           `}
@@ -1272,7 +1272,7 @@ class DeviceMonitorCardEditor extends HTMLElement {
     this._hass = hass;
     // Log hass object for debugging
     if (hass && hass.locale) {
-      console.log(`[Device Monitor CardEditor] Hass locale detected:`, hass.locale);
+      console.log('[Device Monitor CardEditor] Hass locale detected:', hass.locale);
     }
     // Trigger re-render when language might have changed
     if (this._rendered && this._config) {
@@ -1310,7 +1310,7 @@ class DeviceMonitorCardEditor extends HTMLElement {
     const dispatchEvent = () => {
       const event = new Event('config-changed', {
         bubbles: true,
-        composed: true,
+        composed: true
       });
       event.detail = { config: newConfig };
       this.dispatchEvent(event);
@@ -1749,7 +1749,7 @@ class DeviceMonitorBadge extends HTMLElement {
         }
         break;
 
-      case 'more-info':
+      case 'more-info': {
         // Prefer target.entity_id when provided to match HA semantics
         let entityId = normalizedAction.entity_id || null;
         if (!entityId && normalizedAction.target && normalizedAction.target.entity_id) {
@@ -1763,6 +1763,7 @@ class DeviceMonitorBadge extends HTMLElement {
           detail: { entityId: entityId }
         }));
         break;
+      }
 
       default:
         if (this._config.debug) {
@@ -1888,7 +1889,7 @@ class DeviceMonitorBadge extends HTMLElement {
         ` : ''}
       </style>
 
-      <ha-badge id="badge" ${hasAnyAction ? `role="button" tabindex="0"` : ''}>
+      <ha-badge id="badge" ${hasAnyAction ? 'role="button" tabindex="0"' : ''}>
         <ha-icon slot="icon" icon="${icon}"></ha-icon>
         ${badgeText}
       </ha-badge>
@@ -2016,7 +2017,7 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
     this._hass = hass;
     // Log hass object for debugging
     if (hass && hass.locale) {
-      console.log(`[Device Monitor BadgeEditor] Hass locale detected:`, hass.locale);
+      console.log('[Device Monitor BadgeEditor] Hass locale detected:', hass.locale);
     }
     // Trigger re-render when language might have changed
     if (this._rendered && this._config) {
@@ -2054,7 +2055,7 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
     const dispatchEvent = () => {
       const event = new Event('config-changed', {
         bubbles: true,
-        composed: true,
+        composed: true
       });
       event.detail = { config: newConfig };
       this.dispatchEvent(event);
@@ -2272,137 +2273,137 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
       </div>
     `;
 
-    // Helper function to handle config updates
-    const updateConfig = (configUpdater, debounce = false) => {
-      return (ev) => {
-        const newConfig = {
-          ...this._config,
-          tap_action: this._config.tap_action ? { ...this._config.tap_action } : { action: 'none' }
+      // Helper function to handle config updates
+      const updateConfig = (configUpdater, debounce = false) => {
+        return (ev) => {
+          const newConfig = {
+            ...this._config,
+            tap_action: this._config.tap_action ? { ...this._config.tap_action } : { action: 'none' }
+          };
+          configUpdater(newConfig, ev.target);
+          this.configChanged(newConfig, !debounce); // invert debounce flag for immediate parameter
+
+          // Re-render if entity type changed (to show/hide battery threshold)
+          if (ev.target.id === 'entity_type') {
+            this._rendered = false;
+            this.setConfig(newConfig);
+          }
         };
-        configUpdater(newConfig, ev.target);
-        this.configChanged(newConfig, !debounce); // invert debounce flag for immediate parameter
-
-        // Re-render if entity type changed (to show/hide battery threshold)
-        if (ev.target.id === 'entity_type') {
-          this._rendered = false;
-          this.setConfig(newConfig);
-        }
       };
-    };
 
-    // Add event listeners using oninput/onchange to avoid multiple listeners
-    const titleInput = this.querySelector('#title');
-    const entityTypeInput = this.querySelector('#entity_type');
-    const thresholdInput = this.querySelector('#battery_threshold');
-    const badgeVisibilityInput = this.querySelector('#badge_visibility');
-    const tapActionTypeInput = this.querySelector('#tap_action_type');
-    const tapActionNavigateInput = this.querySelector('#tap_action_navigation_path');
-    const tapActionUrlInput = this.querySelector('#tap_action_url_path');
-    const tapActionServiceInput = this.querySelector('#tap_action_service');
-    const tapActionEntityInput = this.querySelector('#tap_action_entity_id');
-    const debugInput = this.querySelector('#debug');
+      // Add event listeners using oninput/onchange to avoid multiple listeners
+      const titleInput = this.querySelector('#title');
+      const entityTypeInput = this.querySelector('#entity_type');
+      const thresholdInput = this.querySelector('#battery_threshold');
+      const badgeVisibilityInput = this.querySelector('#badge_visibility');
+      const tapActionTypeInput = this.querySelector('#tap_action_type');
+      const tapActionNavigateInput = this.querySelector('#tap_action_navigation_path');
+      const tapActionUrlInput = this.querySelector('#tap_action_url_path');
+      const tapActionServiceInput = this.querySelector('#tap_action_service');
+      const tapActionEntityInput = this.querySelector('#tap_action_entity_id');
+      const debugInput = this.querySelector('#debug');
 
-    // Helper to update tap action visibility
-    const updateTapActionVisibility = (actionType) => {
-      const navigateOption = this.querySelector('#tap_action_navigate_option');
-      const urlOption = this.querySelector('#tap_action_url_option');
-      const serviceOption = this.querySelector('#tap_action_service_option');
-      const entityOption = this.querySelector('#tap_action_entity_option');
+      // Helper to update tap action visibility
+      const updateTapActionVisibility = (actionType) => {
+        const navigateOption = this.querySelector('#tap_action_navigate_option');
+        const urlOption = this.querySelector('#tap_action_url_option');
+        const serviceOption = this.querySelector('#tap_action_service_option');
+        const entityOption = this.querySelector('#tap_action_entity_option');
 
-      if (navigateOption) navigateOption.classList.toggle('hidden', actionType !== 'navigate');
-      if (urlOption) urlOption.classList.toggle('hidden', actionType !== 'url');
-      if (serviceOption) serviceOption.classList.toggle('hidden', actionType !== 'call-service');
-      if (entityOption) entityOption.classList.toggle('hidden', actionType !== 'toggle' && actionType !== 'more-info');
-    };
+        if (navigateOption) navigateOption.classList.toggle('hidden', actionType !== 'navigate');
+        if (urlOption) urlOption.classList.toggle('hidden', actionType !== 'url');
+        if (serviceOption) serviceOption.classList.toggle('hidden', actionType !== 'call-service');
+        if (entityOption) entityOption.classList.toggle('hidden', actionType !== 'toggle' && actionType !== 'more-info');
+      };
 
-    // Text and number inputs - debounced to prevent focus loss
-    if (titleInput) {
-      titleInput.oninput = updateConfig((config, target) => {
-        config.title = target.value;
-      }, true);
-    }
+      // Text and number inputs - debounced to prevent focus loss
+      if (titleInput) {
+        titleInput.oninput = updateConfig((config, target) => {
+          config.title = target.value;
+        }, true);
+      }
 
-    if (thresholdInput) {
-      thresholdInput.oninput = updateConfig((config, target) => {
-        config.battery_threshold = Number(target.value);
-      }, true);
-    }
+      if (thresholdInput) {
+        thresholdInput.oninput = updateConfig((config, target) => {
+          config.battery_threshold = Number(target.value);
+        }, true);
+      }
 
-    if (tapActionNavigateInput) {
-      tapActionNavigateInput.oninput = updateConfig((config, target) => {
-        if (!config.tap_action) config.tap_action = {};
-        config.tap_action.navigation_path = target.value;
-      }, true);
-    }
-
-    if (tapActionUrlInput) {
-      tapActionUrlInput.oninput = updateConfig((config, target) => {
-        if (!config.tap_action) config.tap_action = {};
-        config.tap_action.url_path = target.value;
-      }, true);
-    }
-
-    if (tapActionServiceInput) {
-      tapActionServiceInput.oninput = updateConfig((config, target) => {
-        if (!config.tap_action) config.tap_action = {};
-        config.tap_action.service = target.value;
-      }, true);
-    }
-
-    if (tapActionEntityInput) {
-      tapActionEntityInput.oninput = updateConfig((config, target) => {
-        if (!config.tap_action) config.tap_action = {};
-        config.tap_action.entity_id = target.value;
-      }, true);
-    }
-
-    // Selects and checkboxes - immediate updates
-    if (entityTypeInput) {
-      entityTypeInput.onchange = updateConfig((config, target) => {
-        config.entity_type = target.value;
-        // Update title to match new entity type default if current title matches old default
-        const strategy = ENTITY_TYPES[target.value];
-        if (strategy && !config.title) {
-          config.title = strategy.defaultTitle;
-        }
-      }, false);
-    }
-
-    if (badgeVisibilityInput) {
-      badgeVisibilityInput.onchange = updateConfig((config, target) => {
-        config.badge_visibility = target.value;
-      }, false);
-    }
-
-    if (tapActionTypeInput) {
-      tapActionTypeInput.onchange = updateConfig((config, target) => {
-        const actionType = target.value;
-        if (actionType === 'none') {
-          config.tap_action = { action: 'none' };
-        } else {
+      if (tapActionNavigateInput) {
+        tapActionNavigateInput.oninput = updateConfig((config, target) => {
           if (!config.tap_action) config.tap_action = {};
-          config.tap_action.action = actionType;
-          // Clear fields that don't apply to this action
-          if (actionType !== 'navigate') delete config.tap_action.navigation_path;
-          if (actionType !== 'url') delete config.tap_action.url_path;
-          if (actionType !== 'call-service') delete config.tap_action.service;
-          if (actionType !== 'toggle' && actionType !== 'more-info') delete config.tap_action.entity_id;
-        }
-        // Update visibility immediately for instant feedback
-        updateTapActionVisibility(actionType);
+          config.tap_action.navigation_path = target.value;
+        }, true);
+      }
+
+      if (tapActionUrlInput) {
+        tapActionUrlInput.oninput = updateConfig((config, target) => {
+          if (!config.tap_action) config.tap_action = {};
+          config.tap_action.url_path = target.value;
+        }, true);
+      }
+
+      if (tapActionServiceInput) {
+        tapActionServiceInput.oninput = updateConfig((config, target) => {
+          if (!config.tap_action) config.tap_action = {};
+          config.tap_action.service = target.value;
+        }, true);
+      }
+
+      if (tapActionEntityInput) {
+        tapActionEntityInput.oninput = updateConfig((config, target) => {
+          if (!config.tap_action) config.tap_action = {};
+          config.tap_action.entity_id = target.value;
+        }, true);
+      }
+
+      // Selects and checkboxes - immediate updates
+      if (entityTypeInput) {
+        entityTypeInput.onchange = updateConfig((config, target) => {
+          config.entity_type = target.value;
+          // Update title to match new entity type default if current title matches old default
+          const strategy = ENTITY_TYPES[target.value];
+          if (strategy && !config.title) {
+            config.title = strategy.defaultTitle;
+          }
+        }, false);
+      }
+
+      if (badgeVisibilityInput) {
+        badgeVisibilityInput.onchange = updateConfig((config, target) => {
+          config.badge_visibility = target.value;
+        }, false);
+      }
+
+      if (tapActionTypeInput) {
+        tapActionTypeInput.onchange = updateConfig((config, target) => {
+          const actionType = target.value;
+          if (actionType === 'none') {
+            config.tap_action = { action: 'none' };
+          } else {
+            if (!config.tap_action) config.tap_action = {};
+            config.tap_action.action = actionType;
+            // Clear fields that don't apply to this action
+            if (actionType !== 'navigate') delete config.tap_action.navigation_path;
+            if (actionType !== 'url') delete config.tap_action.url_path;
+            if (actionType !== 'call-service') delete config.tap_action.service;
+            if (actionType !== 'toggle' && actionType !== 'more-info') delete config.tap_action.entity_id;
+          }
+          // Update visibility immediately for instant feedback
+          updateTapActionVisibility(actionType);
         // Re-render will also happen to ensure everything is in sync
-      }, false);
-    }
+        }, false);
+      }
 
-    // Initialize tap action visibility on first render
-    const currentAction = (this._config.tap_action && this._config.tap_action.action) || 'none';
-    updateTapActionVisibility(currentAction);
+      // Initialize tap action visibility on first render
+      const currentAction = (this._config.tap_action && this._config.tap_action.action) || 'none';
+      updateTapActionVisibility(currentAction);
 
-    if (debugInput) {
-      debugInput.onchange = updateConfig((config, target) => {
-        config.debug = target.checked;
-      }, false);
-    }
+      if (debugInput) {
+        debugInput.onchange = updateConfig((config, target) => {
+          config.debug = target.checked;
+        }, false);
+      }
     } catch (error) {
       console.error('[Device Monitor Badge Editor] Render error:', error);
       this.innerHTML = `
@@ -2423,22 +2424,22 @@ customElements.define('device-monitor-badge-editor', DeviceMonitorBadgeEditor);
 
 // Register card with Home Assistant
 window.customCards = window.customCards || [];
-  window.customCards.push({
-    type: 'device-monitor-card',
-    name: 'Device Monitor Card',
-    description: 'Monitor batteries, contact sensors (doors/windows), and lights with alerts and grouping',
-    preview: false,
-    documentationURL: 'https://github.com/molant/device-monitor-card',
-  });
+window.customCards.push({
+  type: 'device-monitor-card',
+  name: 'Device Monitor Card',
+  description: 'Monitor batteries, contact sensors (doors/windows), and lights with alerts and grouping',
+  preview: false,
+  documentationURL: 'https://github.com/molant/device-monitor-card'
+});
 
-  // Register badge with Home Assistant - also in customCards as badges are a type of card
-  window.customCards.push({
-    type: 'device-monitor-badge',
-    name: 'Device Monitor Badge',
-    description: 'Compact badge showing device alert counts for batteries, contact sensors, and lights',
-    preview: false,
-    documentationURL: 'https://github.com/molant/device-monitor-card',
-  });
+// Register badge with Home Assistant - also in customCards as badges are a type of card
+window.customCards.push({
+  type: 'device-monitor-badge',
+  name: 'Device Monitor Badge',
+  description: 'Compact badge showing device alert counts for batteries, contact sensors, and lights',
+  preview: false,
+  documentationURL: 'https://github.com/molant/device-monitor-card'
+});
 
 // Also register as a badge element for the badge picker
 if (!window.customBadges) {
@@ -2477,7 +2478,7 @@ window.customBadges.push({
   name: 'Device Monitor Badge',
   description: 'Low battery (3/5) · Doors/Windows open (4/10) · Lights on (2/8)',
   preview: true,
-  getPreviewElement: () => document.createElement('device-monitor-badge-preview'),
+  getPreviewElement: () => document.createElement('device-monitor-badge-preview')
 });
 
 console.info(
