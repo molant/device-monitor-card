@@ -647,6 +647,9 @@ class DeviceMonitorCard extends HTMLElement {
       });
 
       normals = normals.filter(d => !unavailableIds.has(d.entityId));
+    } else {
+      alerts = alerts.filter(d => !d.stateInfo.isUnavailable);
+      normals = normals.filter(d => !d.stateInfo.isUnavailable);
     }
 
     const groupedAlertDevices = this._groupDevices(alerts);
@@ -655,10 +658,14 @@ class DeviceMonitorCard extends HTMLElement {
     const sortedAlertDevices = this._sortDevices(groupedAlertDevices);
     const sortedNormalDevices = this._sortDevices(groupedNormalDevices);
 
+    const adjustedTotal = includeUnavailable
+      ? totalDevices
+      : Math.max(0, totalDevices - unavailableDevices.length);
+
     return {
       alertDevices: sortedAlertDevices,
       normalDevices: sortedNormalDevices,
-      totalDevices: totalDevices
+      totalDevices: adjustedTotal
     };
   }
 
@@ -867,6 +874,16 @@ class DeviceMonitorCard extends HTMLElement {
   }
 
   /**
+   * Localized label for unavailable state
+   */
+  _getUnavailableLabel() {
+    if (!this._hass) return 'Unavailable';
+    const localized = this._hass.localize?.('state.default.unavailable') ||
+      this._hass.localize?.('state.unavailable');
+    return localized || 'Unavailable';
+  }
+
+  /**
    * Render a single device row
    */
   _renderDevice(device) {
@@ -884,7 +901,7 @@ class DeviceMonitorCard extends HTMLElement {
     // Choose name based on config
     const displayName = this._config.name_source === 'entity' ? device.entityName : device.deviceName;
     const nameClass = `device-name${isUnavailable ? ' unavailable' : ''}`;
-    const stateValue = isUnavailable ? 'Unavailable' : device.stateInfo.displayValue;
+    const stateValue = isUnavailable ? this._getUnavailableLabel() : device.stateInfo.displayValue;
     const stateValueClass = `state-value${isUnavailable ? ' unavailable' : ''}`;
 
     return `
@@ -1764,9 +1781,13 @@ class DeviceMonitorBadge extends HTMLElement {
           alerts.push(device);
         }
       });
+    } else {
+      alerts = alerts.filter(d => !d.stateInfo.isUnavailable);
     }
 
-    return { alertDevices: alerts, totalDevices };
+    const adjustedTotal = includeUnavailable ? totalDevices : Math.max(0, totalDevices - unavailableDevices.length);
+
+    return { alertDevices: alerts, totalDevices: adjustedTotal };
   }
 
   /**
