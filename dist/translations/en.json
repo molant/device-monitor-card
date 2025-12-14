@@ -71,8 +71,7 @@
   },
   "default_titles": {
     "battery": "Low Battery",
-    "contact": "Open Doors",
-    "light": "Lights On",
-    "badge_contact": "Open Doors & Windows"
+    "contact": "Open Doors & Windows",
+    "light": "Lights On"
   }
 }

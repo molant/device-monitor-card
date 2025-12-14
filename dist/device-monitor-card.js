@@ -110,6 +110,219 @@ localizationHelper.loadTranslations('en').catch(err => {
   console.warn('[Device Monitor] Failed to preload English translations:', err);
 });
 
+const DEFAULT_TITLE_FALLBACKS = {
+  battery: 'Low Battery',
+  contact: 'Open Doors & Windows',
+  light: 'Lights On'
+};
+
+const getDefaultTitle = (entityType) => {
+  const localized = localizationHelper.localize(`default_titles.${entityType}`);
+  return localized || DEFAULT_TITLE_FALLBACKS[entityType] || 'Device Monitor';
+};
+
+const getEmptyMessage = (entityType, strategy) => {
+  const localized = localizationHelper.localize(`empty_messages.${entityType}`);
+  return localized || strategy.emptyMessage;
+};
+
+const registryHelpers = {
+  getAreaId(hass, deviceId) {
+    if (!hass || !hass.devices) {
+      return null;
+    }
+    const device = hass.devices[deviceId];
+    return device?.area_id || null;
+  },
+
+  getAreaName(hass, areaId) {
+    if (!hass || !hass.areas) {
+      return null;
+    }
+    const area = hass.areas[areaId];
+    return area?.name || null;
+  },
+
+  getFloorId(hass, areaId) {
+    if (!hass || !hass.areas) {
+      return null;
+    }
+    const area = hass.areas[areaId];
+    return area?.floor_id || null;
+  },
+
+  getFloorName(hass, floorId) {
+    if (!hass || !hass.floors) {
+      return null;
+    }
+    const floor = hass.floors[floorId];
+    return floor?.name || null;
+  },
+
+  isEntityHidden(hass, entityId) {
+    if (!hass || !hass.entities) {
+      return false;
+    }
+    const entityRegistry = hass.entities[entityId];
+    return entityRegistry?.hidden === true;
+  },
+
+  isGroupEntity(entityId) {
+    return entityId.startsWith('light.') || entityId.startsWith('contact.') || entityId.startsWith('sensor.');
+  },
+
+  getDeviceId(hass, entityId) {
+    if (!hass || !hass.entities) {
+      return null;
+    }
+    const entity = hass.entities[entityId];
+    return entity?.device_id || null;
+  },
+
+  getDeviceName(hass, deviceId) {
+    if (!hass || !hass.devices) {
+      return null;
+    }
+    const device = hass.devices[deviceId];
+    if (!device) {
+      return null;
+    }
+    return device.name_by_user || device.name || deviceId;
+  }
+};
+
+const collectDevices = (hass, config, options = {}) => {
+  if (!hass) {
+    return { alertDevices: [], normalDevices: [], totalDevices: 0, allDevices: [] };
+  }
+
+  const entityType = config.entity_type || 'battery';
+  const strategy = ENTITY_TYPES[entityType];
+  if (!strategy) {
+    return { alertDevices: [], normalDevices: [], totalDevices: 0, allDevices: [] };
+  }
+
+  const includeArea = options.includeArea || false;
+  const debug = options.debug || false;
+  const debugTag = options.debugTag || 'Device Monitor';
+  const entities = hass.states || {};
+  const devices = {};
+  const batteryLowBinarySensors = new Set();
+
+  if (entityType === 'battery') {
+    Object.keys(entities).forEach(entityId => {
+      if (entityId.includes('_battery_low') && entityId.startsWith('binary_sensor.')) {
+        batteryLowBinarySensors.add(entityId.replace('binary_sensor.', 'sensor.').replace('_battery_low', '_battery'));
+      }
+    });
+  }
+
+  Object.keys(entities).forEach(entityId => {
+    const entity = entities[entityId];
+    const attributes = entity?.attributes || {};
+
+    if (!strategy.detect(entityId, attributes)) {
+      return;
+    }
+
+    if (registryHelpers.isEntityHidden(hass, entityId)) {
+      return;
+    }
+
+    if (debug) {
+      console.log(`[Device Monitor ${debugTag}] Found ${entityType} entity:`, {
+        entityId,
+        device_class: attributes.device_class,
+        state: entity?.state
+      });
+    }
+
+    if (entityType === 'battery' && batteryLowBinarySensors.has(entityId)) {
+      return;
+    }
+
+    let deviceId = registryHelpers.getDeviceId(hass, entityId);
+    let deviceName;
+    let areaId = null;
+    let areaName = null;
+
+    if (deviceId) {
+      deviceName = registryHelpers.getDeviceName(hass, deviceId);
+      if (!deviceName) {
+        return;
+      }
+      if (includeArea) {
+        areaId = registryHelpers.getAreaId(hass, deviceId);
+        areaName = areaId ? registryHelpers.getAreaName(hass, areaId) : null;
+      }
+    } else if (registryHelpers.isGroupEntity(entityId)) {
+      deviceId = entityId;
+      deviceName = attributes.friendly_name || entityId;
+      if (includeArea) {
+        const entityReg = hass.entities?.[entityId];
+        if (entityReg?.area_id) {
+          areaId = entityReg.area_id;
+          areaName = registryHelpers.getAreaName(hass, areaId);
+        }
+      }
+    } else {
+      return;
+    }
+
+    const entityName = attributes.friendly_name || entityId;
+    const stateInfo = strategy.evaluateState({ ...entity, entity_id: entityId }, config, hass);
+    const storageKey = entityType === 'battery' ? deviceId : entityId;
+
+    const existingDevice = devices[storageKey];
+    const shouldUpdate = !existingDevice ||
+      (entityType === 'battery' && stateInfo.numericValue !== null && existingDevice.stateInfo.numericValue === null);
+
+    if (shouldUpdate) {
+      devices[storageKey] = {
+        deviceId,
+        deviceName,
+        entityName,
+        entityId,
+        stateInfo,
+        lastChanged: entity?.last_changed,
+        attributes
+      };
+
+      if (includeArea) {
+        devices[storageKey].areaId = areaId;
+        devices[storageKey].areaName = areaName;
+      }
+
+      if (debug) {
+        console.log(`[Device Monitor ${debugTag}] ${existingDevice ? 'Updated' : 'Added'} device:`, {
+          deviceName,
+          entityId,
+          stateInfo
+        });
+      }
+    }
+  });
+
+  const allDevices = Object.values(devices);
+  const alertDevices = allDevices.filter(d => d.stateInfo.isAlert);
+  const normalDevices = allDevices.filter(d => !d.stateInfo.isAlert);
+
+  if (debug) {
+    console.log(`[Device Monitor ${debugTag}] Summary for ${entityType}:`, {
+      total: allDevices.length,
+      alert: alertDevices.length,
+      normal: normalDevices.length
+    });
+  }
+
+  return {
+    alertDevices,
+    normalDevices,
+    allDevices,
+    totalDevices: allDevices.length
+  };
+};
+
 /**
  * Entity type strategies for different device types
  */
@@ -266,7 +479,7 @@ const ENTITY_TYPES = {
     emptyIcon: 'mdi:door-closed',
 
     // Default title for badge
-    defaultTitle: 'Open Doors',
+    defaultTitle: 'Open Doors & Windows',
 
     // Get badge color based on alert count
     getBadgeColor: (alertCount) => {
@@ -344,11 +557,7 @@ class DeviceMonitorCard extends HTMLElement {
       throw new Error(`Invalid entity_type: ${entityType}. Must be one of: ${Object.keys(ENTITY_TYPES).join(', ')}`);
     }
 
-    // Default title based on entity type
-    let defaultTitle = 'Device Monitor';
-    if (entityType === 'battery') defaultTitle = 'Low Battery';
-    else if (entityType === 'contact') defaultTitle = 'Open Doors & Windows';
-    else if (entityType === 'light') defaultTitle = 'Lights On';
+    const defaultTitle = getDefaultTitle(entityType);
 
     this._config = {
       entity_type: entityType,
@@ -386,155 +595,22 @@ class DeviceMonitorCard extends HTMLElement {
    * Get all devices for the configured entity type
    */
   _getDevices() {
-    if (!this._hass) {
-      return { alertDevices: [], normalDevices: [], totalDevices: 0 };
-    }
-
-    const entityType = this._config.entity_type;
-    const strategy = ENTITY_TYPES[entityType];
-    const entities = this._hass.states;
-    const devices = {};
-    const batteryLowBinarySensors = new Set();
-
-    // Special handling for battery: find binary_sensor.*_battery_low entities
-    if (entityType === 'battery') {
-      Object.keys(entities).forEach(entityId => {
-        if (entityId.includes('_battery_low') && entityId.startsWith('binary_sensor.')) {
-          batteryLowBinarySensors.add(entityId.replace('binary_sensor.', 'sensor.').replace('_battery_low', '_battery'));
-        }
-      });
-    }
-
-    // Process all entities
-    Object.keys(entities).forEach(entityId => {
-      const entity = entities[entityId];
-      const attributes = entity.attributes || {};
-
-      // Check if this entity matches our type
-      if (!strategy.detect(entityId, attributes)) {
-        return;
-      }
-
-      // Skip if entity is marked as invisible in Home Assistant UI
-      if (this._isEntityHidden(entityId)) {
-        return;
-      }
-
-      // Debug logging
-      if (this._config.debug) {
-        console.log(`[Device Monitor] Found ${entityType} entity:`, {
-          entityId,
-          device_class: attributes.device_class,
-          state: entity.state
-        });
-      }
-
-      // Skip if there's a corresponding battery_low binary sensor (battery only)
-      if (entityType === 'battery' && batteryLowBinarySensors.has(entityId)) {
-        return;
-      }
-
-      // Get device information
-      let deviceId = this._getDeviceId(entityId);
-      let deviceName;
-      let areaId = null;
-      let areaName = null;
-
-      if (deviceId) {
-        // Physical device
-        deviceName = this._getDeviceName(deviceId);
-        if (!deviceName) {
-          return; // Skip if we can't get device name
-        }
-        // Get area information for grouping
-        areaId = this._getAreaId(deviceId);
-        areaName = areaId ? this._getAreaName(areaId) : null;
-      } else if (this._isGroupEntity(entityId)) {
-        // Group entity (e.g., light.living_room_lights, contact.all_doors)
-        deviceId = entityId; // Use entity ID as unique identifier for groups
-        deviceName = attributes.friendly_name || entityId;
-        // Get area information for group entities from entity registry
-        const entityReg = this._hass.entities[entityId];
-        if (entityReg?.area_id) {
-          areaId = entityReg.area_id;
-          areaName = this._getAreaName(areaId);
-        }
-      } else {
-        // Skip entities without device or group
-        return;
-      }
-
-      // Get entity friendly name
-      const entityName = attributes.friendly_name || entityId;
-
-      // Evaluate state using strategy
-      const stateInfo = strategy.evaluateState({ ...entity, entity_id: entityId }, this._config, this._hass);
-
-      // For light and contact types, create unique entries per entity since one device can have multiple entities
-      // For battery type, use deviceId as key to deduplicate (one battery per device)
-      let storageKey;
-      if (entityType === 'battery') {
-        storageKey = deviceId;
-      } else {
-        // For lights and contacts, use entity ID as key so we track each entity separately
-        storageKey = entityId;
-      }
-
-      // Store or update device info
-      // For batteries, prefer numeric levels; for others, just use first match
-      const existingDevice = devices[storageKey];
-      const shouldUpdate = !existingDevice ||
-        (entityType === 'battery' && stateInfo.numericValue !== null && existingDevice.stateInfo.numericValue === null);
-
-      if (shouldUpdate) {
-        devices[storageKey] = {
-          deviceId,
-          deviceName,
-          entityName,
-          entityId,
-          stateInfo,
-          lastChanged: entity.last_changed,
-          attributes,
-          areaId,
-          areaName
-        };
-
-        if (this._config.debug) {
-          console.log(`[Device Monitor] ${existingDevice ? 'Updated' : 'Added'} device:`, {
-            deviceName,
-            entityId,
-            stateInfo
-          });
-        }
-      }
+    const { alertDevices, normalDevices, totalDevices } = collectDevices(this._hass, this._config, {
+      includeArea: true,
+      debug: this._config.debug,
+      debugTag: 'Card'
     });
 
-    // Get all devices and separate by alert status
-    let allDevices = Object.values(devices);
-    const alertDevices = allDevices.filter(d => d.stateInfo.isAlert);
-    const normalDevices = allDevices.filter(d => !d.stateInfo.isAlert);
-
-    // Apply grouping if configured
     const groupedAlertDevices = this._groupDevices(alertDevices);
     const groupedNormalDevices = this._groupDevices(normalDevices);
 
-    // Apply sorting
     const sortedAlertDevices = this._sortDevices(groupedAlertDevices);
     const sortedNormalDevices = this._sortDevices(groupedNormalDevices);
-
-    // Summary debug logging
-    if (this._config.debug) {
-      console.log(`[Device Monitor] Summary for ${entityType}:`, {
-        total: allDevices.length,
-        alert: alertDevices.length,
-        normal: normalDevices.length
-      });
-    }
 
     return {
       alertDevices: sortedAlertDevices,
       normalDevices: sortedNormalDevices,
-      totalDevices: allDevices.length
+      totalDevices: totalDevices
     };
   }
 
@@ -557,8 +633,8 @@ class DeviceMonitorCard extends HTMLElement {
         groupKey = device.areaName || 'No Area';
       } else if (groupBy === 'floor') {
         // Get floor from area
-        const floorId = device.areaId ? this._getFloorId(device.areaId) : null;
-        groupKey = floorId ? this._getFloorName(floorId) : 'No Floor';
+        const floorId = device.areaId ? registryHelpers.getFloorId(this._hass, device.areaId) : null;
+        groupKey = floorId ? registryHelpers.getFloorName(this._hass, floorId) : 'No Floor';
       }
 
       if (!grouped[groupKey]) {
@@ -653,108 +729,11 @@ class DeviceMonitorCard extends HTMLElement {
   }
 
   /**
-   * Get area ID for a device
-   */
-  _getAreaId(deviceId) {
-    if (!this._hass || !this._hass.devices) {
-      return null;
-    }
-
-    const device = this._hass.devices[deviceId];
-    return device?.area_id || null;
-  }
-
-  /**
-   * Get area name from area registry
-   */
-  _getAreaName(areaId) {
-    if (!this._hass || !this._hass.areas) {
-      return null;
-    }
-
-    const area = this._hass.areas[areaId];
-    return area?.name || null;
-  }
-
-  /**
-   * Get floor ID for an area
-   */
-  _getFloorId(areaId) {
-    if (!this._hass || !this._hass.areas) {
-      return null;
-    }
-
-    const area = this._hass.areas[areaId];
-    return area?.floor_id || null;
-  }
-
-  /**
-   * Get floor name from floor registry
-   */
-  _getFloorName(floorId) {
-    if (!this._hass || !this._hass.floors) {
-      return null;
-    }
-
-    const floor = this._hass.floors[floorId];
-    return floor?.name || null;
-  }
-
-  /**
-   * Check if an entity is hidden (marked as invisible in Home Assistant UI)
-   */
-  _isEntityHidden(entityId) {
-    if (!this._hass || !this._hass.entities) {
-      return false;
-    }
-
-    const entityRegistry = this._hass.entities[entityId];
-    // Entity is hidden if hidden property is true (when marked invisible via UI)
-    return entityRegistry?.hidden === true;
-  }
-
-  /**
-   * Check if entity is a group (light group, contact group, or sensor group)
-   */
-  _isGroupEntity(entityId) {
-    return entityId.startsWith('light.') || entityId.startsWith('contact.') || entityId.startsWith('sensor.');
-  }
-
-  /**
-   * Get device ID for an entity
-   */
-  _getDeviceId(entityId) {
-    if (!this._hass || !this._hass.entities) {
-      return null;
-    }
-
-    const entity = this._hass.entities[entityId];
-    return entity?.device_id || null;
-  }
-
-  /**
-   * Get device name from device registry
-   */
-  _getDeviceName(deviceId) {
-    if (!this._hass || !this._hass.devices) {
-      return null;
-    }
-
-    const device = this._hass.devices[deviceId];
-    if (!device) {
-      return null;
-    }
-
-    return device.name_by_user || device.name || deviceId;
-  }
-
-
-  /**
    * Open device page
    */
   _openDevice(deviceId) {
     // Check if this is a group entity (entity ID passed as deviceId for groups)
-    if (this._isGroupEntity(deviceId)) {
+    if (registryHelpers.isGroupEntity(deviceId)) {
       // For groups, show the entity details in more-info dialog
       const event = new Event('hass-more-info', {
         bubbles: true,
@@ -950,6 +929,7 @@ class DeviceMonitorCard extends HTMLElement {
     const strategy = ENTITY_TYPES[this._config.entity_type];
     const showAll = this._config.filter === 'all';
     const collapseLimit = this._config.collapse;
+    const emptyMessage = getEmptyMessage(this._config.entity_type, strategy);
 
     // Determine which devices to show
     let devicesToShow = showAll
@@ -1179,7 +1159,7 @@ class DeviceMonitorCard extends HTMLElement {
           ${alertDevices.length === 0 && !showAll ? `
             <div class="empty-state">
               <ha-icon icon="${strategy.emptyIcon}"></ha-icon>
-              <div class="empty-state-text">${strategy.emptyMessage}</div>
+              <div class="empty-state-text">${emptyMessage}</div>
             </div>
           ` : `
             <div class="device-list">
@@ -1658,11 +1638,12 @@ class DeviceMonitorBadge extends HTMLElement {
     const tapAction = this._normalizeAction(config.tap_action);
     const holdAction = this._normalizeAction(config.hold_action);
     const doubleTapAction = this._normalizeAction(config.double_tap_action);
+    const defaultTitle = getDefaultTitle(entityType) || strategy.defaultTitle;
 
     this._config = {
       entity_type: entityType,
       battery_threshold: config.battery_threshold || 20,
-      title: config.title || strategy.defaultTitle,
+      title: config.title || defaultTitle,
       badge_visibility: config.badge_visibility || 'always',
       debug: config.debug || false,
       ...config,
@@ -1686,174 +1667,13 @@ class DeviceMonitorBadge extends HTMLElement {
    * Get all devices for the configured entity type
    */
   _getDevices() {
-    if (!this._hass) {
-      return { alertDevices: [], totalDevices: 0 };
-    }
-
-    const entityType = this._config.entity_type;
-    const strategy = ENTITY_TYPES[entityType];
-    const entities = this._hass.states;
-    const devices = {};
-    const batteryLowBinarySensors = new Set();
-
-    // Special handling for battery: find binary_sensor.*_battery_low entities
-    if (entityType === 'battery') {
-      Object.keys(entities).forEach(entityId => {
-        if (entityId.includes('_battery_low') && entityId.startsWith('binary_sensor.')) {
-          batteryLowBinarySensors.add(entityId.replace('binary_sensor.', 'sensor.').replace('_battery_low', '_battery'));
-        }
-      });
-    }
-
-    // Process all entities
-    Object.keys(entities).forEach(entityId => {
-      const entity = entities[entityId];
-      const attributes = entity.attributes || {};
-
-      // Check if this entity matches our type
-      if (!strategy.detect(entityId, attributes)) {
-        return;
-      }
-
-      // Skip if entity is marked as invisible in Home Assistant UI
-      if (this._isEntityHidden(entityId)) {
-        return;
-      }
-
-      // Debug logging
-      if (this._config.debug) {
-        console.log(`[Device Monitor Badge] Found ${entityType} entity:`, {
-          entityId,
-          device_class: attributes.device_class,
-          state: entity.state
-        });
-      }
-
-      // Skip if there's a corresponding battery_low binary sensor (battery only)
-      if (entityType === 'battery' && batteryLowBinarySensors.has(entityId)) {
-        return;
-      }
-
-      // Get device information
-      let deviceId = this._getDeviceId(entityId);
-      let deviceName;
-
-      if (deviceId) {
-        // Physical device
-        deviceName = this._getDeviceName(deviceId);
-        if (!deviceName) {
-          return; // Skip if we can't get device name
-        }
-      } else if (this._isGroupEntity(entityId)) {
-        // Group entity (e.g., light.living_room_lights, contact.all_doors)
-        deviceId = entityId; // Use entity ID as unique identifier for groups
-        deviceName = this._hass.entities[entityId]?.attributes?.friendly_name || entityId;
-      } else {
-        // Skip entities without device or group
-        return;
-      }
-
-      // Evaluate state using strategy
-      const stateInfo = strategy.evaluateState({ ...entity, entity_id: entityId }, this._config, this._hass);
-
-      // For light and contact types, create unique entries per entity since one device can have multiple entities
-      // For battery type, use deviceId as key to deduplicate (one battery per device)
-      let storageKey;
-      if (entityType === 'battery') {
-        storageKey = deviceId;
-      } else {
-        // For lights and contacts, use entity ID as key so we track each entity separately
-        storageKey = entityId;
-      }
-
-      // Store or update device info
-      // For batteries, prefer numeric levels; for others, just use first match
-      const existingDevice = devices[storageKey];
-      const shouldUpdate = !existingDevice ||
-        (entityType === 'battery' && stateInfo.numericValue !== null && existingDevice.stateInfo.numericValue === null);
-
-      if (shouldUpdate) {
-        devices[storageKey] = {
-          deviceId,
-          deviceName,
-          entityId,
-          stateInfo
-        };
-
-        if (this._config.debug) {
-          console.log(`[Device Monitor Badge] ${existingDevice ? 'Updated' : 'Added'} device:`, {
-            deviceName,
-            entityId,
-            stateInfo
-          });
-        }
-      }
+    const { alertDevices, totalDevices } = collectDevices(this._hass, this._config, {
+      includeArea: false,
+      debug: this._config.debug,
+      debugTag: 'Badge'
     });
 
-    // Get all devices and separate by alert status
-    let allDevices = Object.values(devices);
-    const alertDevices = allDevices.filter(d => d.stateInfo.isAlert);
-
-    // Summary debug logging
-    if (this._config.debug) {
-      console.log(`[Device Monitor Badge] Summary for ${entityType}:`, {
-        total: allDevices.length,
-        alert: alertDevices.length
-      });
-    }
-
-    return {
-      alertDevices,
-      totalDevices: allDevices.length
-    };
-  }
-
-  /**
-   * Check if an entity is hidden (marked as invisible in Home Assistant UI)
-   */
-  _isEntityHidden(entityId) {
-    if (!this._hass || !this._hass.entities) {
-      return false;
-    }
-
-    const entityRegistry = this._hass.entities[entityId];
-    // Entity is hidden if hidden property is true (when marked invisible via UI)
-    return entityRegistry?.hidden === true;
-  }
-
-  /**
-   * Check if entity is a group (light group, contact group, or sensor group)
-   */
-  _isGroupEntity(entityId) {
-    return entityId.startsWith('light.') || entityId.startsWith('contact.') || entityId.startsWith('sensor.');
-  }
-
-  /**
-   * Get device ID for an entity
-   */
-  _getDeviceId(entityId) {
-    if (!this._hass || !this._hass.entities) {
-      return null;
-    }
-
-    const entity = this._hass.entities[entityId];
-    return entity?.device_id || null;
-  }
-
-  /**
-   * Get device name from device registry
-   */
-  _getDeviceName(deviceId) {
-    if (!this._hass || !this._hass.devices) {
-      return null;
-    }
-
-    const device = this._hass.devices[deviceId];
-    if (!device) {
-      return null;
-    }
-
-    return device.name_by_user || device.name || deviceId;
+    return { alertDevices, totalDevices };
   }
 
   /**
@@ -1979,10 +1799,12 @@ class DeviceMonitorBadge extends HTMLElement {
     if (!this._hass) {
       // In edit mode without hass, show a placeholder
       if (isInEditMode) {
-        const strategy = ENTITY_TYPES[this._config.entity_type || 'battery'];
+        const entityType = this._config.entity_type || 'battery';
+        const strategy = ENTITY_TYPES[entityType];
         const icon = strategy.getIcon({});
         const color = '#757575';
-        const badgeText = `${this._config.title || 'Device Monitor'} (0/0)`;
+        const defaultTitle = getDefaultTitle(entityType);
+        const badgeText = `${this._config.title || defaultTitle} (0/0)`;
 
         this.shadowRoot.innerHTML = `
           <style>
@@ -2601,22 +2423,22 @@ customElements.define('device-monitor-badge-editor', DeviceMonitorBadgeEditor);
 
 // Register card with Home Assistant
 window.customCards = window.customCards || [];
-window.customCards.push({
-  type: 'device-monitor-card',
-  name: 'Device Monitor Card',
-  description: 'Monitor batteries, contact sensors (doors/windows), and lights with alerts and grouping',
-  preview: false,
-  documentationURL: 'https://github.com/molant/battery-monitor-card',
-});
+  window.customCards.push({
+    type: 'device-monitor-card',
+    name: 'Device Monitor Card',
+    description: 'Monitor batteries, contact sensors (doors/windows), and lights with alerts and grouping',
+    preview: false,
+    documentationURL: 'https://github.com/molant/device-monitor-card',
+  });
 
-// Register badge with Home Assistant - also in customCards as badges are a type of card
-window.customCards.push({
-  type: 'device-monitor-badge',
-  name: 'Device Monitor Badge',
-  description: 'Compact badge showing device alert counts for batteries, contact sensors, and lights',
-  preview: false,
-  documentationURL: 'https://github.com/molant/battery-monitor-card',
-});
+  // Register badge with Home Assistant - also in customCards as badges are a type of card
+  window.customCards.push({
+    type: 'device-monitor-badge',
+    name: 'Device Monitor Badge',
+    description: 'Compact badge showing device alert counts for batteries, contact sensors, and lights',
+    preview: false,
+    documentationURL: 'https://github.com/molant/device-monitor-card',
+  });
 
 // Also register as a badge element for the badge picker
 if (!window.customBadges) {

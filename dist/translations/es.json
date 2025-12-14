@@ -71,8 +71,7 @@
   },
   "default_titles": {
     "battery": "Batería Baja",
-    "contact": "Puertas Abiertas",
-    "light": "Luces Encendidas",
-    "badge_contact": "Puertas y Ventanas Abiertas"
+    "contact": "Puertas y Ventanas Abiertas",
+    "light": "Luces Encendidas"
   }
 }
