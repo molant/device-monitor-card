@@ -432,21 +432,28 @@ const ENTITY_TYPES = {
 
     // Detect if an entity is a contact sensor
     detect: (entityId, attributes) => {
-      if (!entityId.startsWith('binary_sensor.')) return false;
-
       const deviceClass = attributes.device_class;
-      return deviceClass === 'door' ||
+      const isContactSensor = entityId.startsWith('binary_sensor.') && (
+        deviceClass === 'door' ||
         deviceClass === 'window' ||
         deviceClass === 'garage_door' ||
         deviceClass === 'lock' ||
-        deviceClass === 'opening';
+        deviceClass === 'opening'
+      );
+
+      const isLock = entityId.startsWith('lock.');
+
+      return isContactSensor || isLock;
     },
 
     // Evaluate if the entity state is in alert condition
     evaluateState: (entity, config, hass) => {
-      const isOpen = entity.state === 'on';
+      const isLock = entity.entity_id?.startsWith('lock.');
+      const openStates = ['on', 'open', 'opening', 'unlocked', 'unlocking', 'jammed'];
+      const isOpen = isLock ? openStates.includes(entity.state) : entity.state === 'on';
       const stateObj = hass?.states?.[entity.entity_id];
-      const displayValue = stateObj ? hass.formatEntityState(stateObj) : (isOpen ? 'Open' : 'Closed');
+      const defaultDisplay = isLock ? (isOpen ? 'Unlocked' : 'Locked') : (isOpen ? 'Open' : 'Closed');
+      const displayValue = stateObj ? hass.formatEntityState(stateObj) : defaultDisplay;
       return {
         value: entity.state,
         displayValue: displayValue,
@@ -458,7 +465,13 @@ const ENTITY_TYPES = {
     // Get icon for contact sensor state
     getIcon: (state) => {
       const deviceClass = state.attributes?.device_class;
-      const isOpen = state.value === 'on';
+      const isLock = state.entityId?.startsWith?.('lock.');
+      const openStates = ['on', 'open', 'opening', 'unlocked', 'unlocking', 'jammed'];
+      const isOpen = isLock ? (state.isAlert || openStates.includes(state.value)) : state.value === 'on';
+
+      if (isLock) {
+        return isOpen ? 'mdi:lock-open-variant' : 'mdi:lock';
+      }
 
       if (deviceClass === 'window') {
         return isOpen ? 'mdi:window-open' : 'mdi:window-closed';
@@ -827,7 +840,7 @@ class DeviceMonitorCard extends HTMLElement {
    */
   _renderDevice(device) {
     const strategy = ENTITY_TYPES[this._config.entity_type];
-    const stateInfo = { ...device.stateInfo, attributes: device.attributes };
+    const stateInfo = { ...device.stateInfo, attributes: device.attributes, entityId: device.entityId };
     const isLight = this._config.entity_type === 'light';
     const showToggle = this._config.show_toggle && isLight;
     const isOn = device.stateInfo.value === 'on';
