@@ -21,6 +21,7 @@ A versatile Home Assistant Lovelace card and badge that monitors multiple types 
 - **Interactive Controls**: Toggle lights on/off directly from the card (optional)
 - **Custom Icons**: Respects user-configured entity icons
 - **Smart Filtering**: For batteries, excludes duplicate sensors when binary_sensor.*_battery_low exists
+- **Unavailable Handling**: Optional switch to include unavailable devices (shown muted, without toggles, using HA’s localized “unavailable” label)
 - **Color-Coded Icons**: Dynamic icons and colors based on entity state
 - **Clickable Devices**: Click any device to open its device page in Home Assistant
 - **Responsive Design**: Mobile-friendly layout that matches Home Assistant's style
@@ -142,6 +143,16 @@ show_toggle: true
 title: Lights On
 ```
 
+#### Include Unavailable Lights
+```yaml
+type: custom:device-monitor-card
+entity_type: light
+filter: all
+show_unavailable: true
+group_by: floor
+title: Lights Status
+```
+
 ### Advanced Configuration Examples
 
 #### Batteries Grouped by Area
@@ -185,6 +196,7 @@ collapse: 10
 | `sort_by` | string | `'state'` | Sort order: `'state'`, `'name'`, or `'last_changed'` |
 | `name_source` | string | `'device'` | Display name: `'device'` (device name) or `'entity'` (entity friendly name) |
 | `show_toggle` | boolean | `false` | (Light only) Show toggle switch to turn lights on/off |
+| `show_unavailable` | boolean | `false` | Include entities whose state is unavailable (shown in alert list with muted styling and no toggle) |
 | `collapse` | number | `undefined` | If set, collapse to show only this many devices with expand button |
 | `debug` | boolean | `false` | Enable debug logging in browser console |
 

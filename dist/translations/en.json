@@ -12,6 +12,8 @@
     "filter_description": "Which devices to show",
     "filter_alert": "Only Alerts",
     "filter_all": "All Devices",
+    "show_unavailable": "Also display unavailable devices",
+    "show_unavailable_description": "Include devices whose state is unavailable",
     "battery_threshold": "Battery Threshold",
     "battery_threshold_description": "Low battery percentage threshold",
     "group_by": "Group By",
