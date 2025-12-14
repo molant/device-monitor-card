@@ -13,6 +13,104 @@
  */
 
 /**
+ * Localization Helper for multi-language support
+ */
+class LocalizationHelper {
+  constructor() {
+    this.translations = {};
+    this.currentLanguage = 'en';
+    this.loadPromises = {};
+  }
+
+  async loadTranslations(language) {
+    if (this.translations[language]) {
+      return; // Already loaded
+    }
+
+    if (this.loadPromises[language]) {
+      return this.loadPromises[language]; // Already loading
+    }
+
+    this.loadPromises[language] = (async () => {
+      try {
+        const response = await fetch(`/local/community/device-monitor-card/translations/${language}.json`);
+        if (!response.ok) {
+          throw new Error(`Translation file not found: ${language} (status: ${response.status})`);
+        }
+        const data = await response.json();
+        this.translations[language] = data;
+      } catch (error) {
+        console.warn(`[Device Monitor] Failed to load translations for ${language}:`, error);
+        // If not English, try loading English as fallback
+        if (language !== 'en') {
+          console.warn(`[Device Monitor] Attempting to load English as fallback for language: ${language}`);
+          await this.loadTranslations('en');
+          // Copy English translations to this language
+          this.translations[language] = this.translations['en'];
+        } else {
+          // Initialize empty translations for current language to prevent errors
+          // Use a complete empty structure with all sections
+          this.translations[language] = {
+            editor: {},
+            labels: {},
+            empty_messages: {},
+            default_titles: {}
+          };
+        }
+      } finally {
+        delete this.loadPromises[language];
+      }
+    })();
+
+    return this.loadPromises[language];
+  }
+
+  async setLanguage(hass) {
+    // Priority order for language detection:
+    // 1. hass.locale.language (most reliable - what CardEditor uses)
+    // 2. hass.config.language (fallback)
+    // 3. hass.language (fallback)
+    // 4. 'en' (default)
+    const lang = hass?.locale?.language || hass?.config?.language || hass?.language || 'en';
+    const shortLang = lang.split('-')[0]; // 'es-ES' -> 'es', 'en-US' -> 'en'
+
+    // Always ensure the language is loaded, even if it's the same
+    // This handles the case where the user switched away and back to the same language
+    await this.loadTranslations(shortLang);
+    this.currentLanguage = shortLang;
+  }
+
+  localize(key) {
+    const keys = key.split('.');
+    let value = this.translations[this.currentLanguage];
+
+    for (const k of keys) {
+      value = value?.[k];
+    }
+
+    // Fallback to English if translation missing
+    if (value === undefined && this.currentLanguage !== 'en') {
+      value = this.translations['en'];
+      for (const k of keys) {
+        value = value?.[k];
+      }
+    }
+
+    // Return translated value, or empty string if not found
+    // This prevents showing technical keys to users during async loading
+    return value !== undefined ? value : '';
+  }
+}
+
+// Create singleton instance
+const localizationHelper = new LocalizationHelper();
+
+// Preload English translations immediately
+localizationHelper.loadTranslations('en').catch(err => {
+  console.warn('[Device Monitor] Failed to preload English translations:', err);
+});
+
+/**
  * Entity type strategies for different device types
  */
 const ENTITY_TYPES = {
@@ -34,15 +132,17 @@ const ENTITY_TYPES = {
     },
 
     // Evaluate if the entity state is in alert condition
-    evaluateState: (entity, config) => {
+    evaluateState: (entity, config, hass) => {
       const threshold = config.battery_threshold || 20;
       const entityId = entity.entity_id;
 
       // Handle binary_sensor.*_battery_low
       if (entityId.includes('_battery_low') && entityId.startsWith('binary_sensor.')) {
+        const stateObj = hass?.states?.[entityId];
+        const displayValue = stateObj ? hass.formatEntityState(stateObj) : (entity.state === 'on' ? 'Low' : 'OK');
         return {
-          value: entity.state === 'on' ? 'Low' : 'OK',
-          displayValue: entity.state === 'on' ? 'Low' : 'OK',
+          value: entity.state === 'on' ? 'low' : 'ok',
+          displayValue: displayValue,
           isAlert: entity.state === 'on',
           numericValue: null
         };
@@ -70,8 +170,8 @@ const ENTITY_TYPES = {
 
     // Get icon for battery state
     getIcon: (state) => {
-      if (state.value === 'Low') return 'mdi:battery-alert';
-      if (state.value === 'OK') return 'mdi:battery';
+      if (state.value === 'low') return 'mdi:battery-alert';
+      if (state.value === 'ok') return 'mdi:battery';
       if (state.numericValue === null) return 'mdi:battery-unknown';
 
       const level = state.numericValue;
@@ -90,8 +190,8 @@ const ENTITY_TYPES = {
 
     // Get color for battery state
     getColor: (state) => {
-      if (state.value === 'Low') return '#ff0000';
-      if (state.value === 'OK') return '#44739e';
+      if (state.value === 'low') return '#ff0000';
+      if (state.value === 'ok') return '#44739e';
       if (state.numericValue === null) return '#ffa500';
 
       const level = state.numericValue;
@@ -129,11 +229,13 @@ const ENTITY_TYPES = {
     },
 
     // Evaluate if the entity state is in alert condition
-    evaluateState: (entity, config) => {
+    evaluateState: (entity, config, hass) => {
       const isOpen = entity.state === 'on';
+      const stateObj = hass?.states?.[entity.entity_id];
+      const displayValue = stateObj ? hass.formatEntityState(stateObj) : (isOpen ? 'Open' : 'Closed');
       return {
         value: entity.state,
-        displayValue: isOpen ? 'Open' : 'Closed',
+        displayValue: displayValue,
         isAlert: isOpen,
         numericValue: null
       };
@@ -182,11 +284,13 @@ const ENTITY_TYPES = {
     },
 
     // Evaluate if the entity state is in alert condition
-    evaluateState: (entity, config) => {
+    evaluateState: (entity, config, hass) => {
       const isOn = entity.state === 'on';
+      const stateObj = hass?.states?.[entity.entity_id];
+      const displayValue = stateObj ? hass.formatEntityState(stateObj) : (isOn ? 'On' : 'Off');
       return {
         value: entity.state,
-        displayValue: isOn ? 'On' : 'Off',
+        displayValue: displayValue,
         isAlert: isOn,
         numericValue: null
       };
@@ -364,7 +468,7 @@ class DeviceMonitorCard extends HTMLElement {
       const entityName = attributes.friendly_name || entityId;
 
       // Evaluate state using strategy
-      const stateInfo = strategy.evaluateState({ ...entity, entity_id: entityId }, this._config);
+      const stateInfo = strategy.evaluateState({ ...entity, entity_id: entityId }, this._config, this._hass);
 
       // For light and contact types, create unique entries per entity since one device can have multiple entities
       // For battery type, use deviceId as key to deduplicate (one battery per device)
@@ -688,7 +792,7 @@ class DeviceMonitorCard extends HTMLElement {
   }
 
   /**
-   * Format last changed time
+   * Format last changed time using native Intl.RelativeTimeFormat
    */
   _formatLastChanged(lastChanged) {
     if (!lastChanged) return '';
@@ -696,6 +800,33 @@ class DeviceMonitorCard extends HTMLElement {
     const date = new Date(lastChanged);
     const now = new Date();
     const diffMs = now - date;
+
+    // Try to use Intl.RelativeTimeFormat if available
+    if ('RelativeTimeFormat' in Intl) {
+      const rtf = new Intl.RelativeTimeFormat(this._hass?.locale?.language || this._hass?.language || 'en', { numeric: 'auto' });
+
+      // Calculate appropriate unit and value
+      const diffSecs = Math.floor(diffMs / 1000);
+      if (diffSecs < 60) {
+        return rtf.format(-diffSecs, 'second');
+      }
+      const diffMins = Math.floor(diffMs / 60000);
+      if (diffMins < 60) {
+        return rtf.format(-diffMins, 'minute');
+      }
+      const diffHours = Math.floor(diffMs / 3600000);
+      if (diffHours < 24) {
+        return rtf.format(-diffHours, 'hour');
+      }
+      const diffDays = Math.floor(diffMs / 86400000);
+      if (diffDays < 7) {
+        return rtf.format(-diffDays, 'day');
+      }
+      // For older dates, use absolute date
+      return date.toLocaleDateString(this._hass?.locale?.language || this._hass?.language);
+    }
+
+    // Fallback for browsers without Intl.RelativeTimeFormat
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
@@ -736,7 +867,7 @@ class DeviceMonitorCard extends HTMLElement {
         <div class="device-info">
           <div class="device-name">${displayName}</div>
           <div class="device-secondary">
-            Last changed: ${this._formatLastChanged(device.lastChanged)}
+            ${localizationHelper.localize('labels.last_changed')}: ${this._formatLastChanged(device.lastChanged)}
           </div>
         </div>
         ${showToggle ? `
@@ -804,6 +935,17 @@ class DeviceMonitorCard extends HTMLElement {
       return;
     }
 
+    // Always wait for translations to be loaded before rendering
+    // This prevents race conditions where translations aren't ready yet
+    localizationHelper.setLanguage(this._hass).then(() => {
+      this._renderCard();
+    }).catch(err => {
+      console.warn('[Device Monitor Card] Failed to set language:', err);
+      this._renderCard();
+    });
+  }
+
+  _renderCard() {
     const { alertDevices, normalDevices, totalDevices } = this._getDevices();
     const strategy = ENTITY_TYPES[this._config.entity_type];
     const showAll = this._config.filter === 'all';
@@ -1141,8 +1283,37 @@ class DeviceMonitorCardEditor extends HTMLElement {
 
     // Only render if not already rendered
     if (!this._rendered) {
-      this.render();
+      this._renderEditor();
       this._rendered = true;
+    }
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    // Log hass object for debugging
+    if (hass && hass.locale) {
+      console.log(`[Device Monitor CardEditor] Hass locale detected:`, hass.locale);
+    }
+    // Trigger re-render when language might have changed
+    if (this._rendered && this._config) {
+      this._renderEditor();
+    }
+  }
+
+  _renderEditor() {
+    // Load translations and wait before rendering
+    if (this._hass) {
+      localizationHelper.setLanguage(this._hass).then(() => {
+        // Render after language is loaded
+        this.render();
+      }).catch(err => {
+        console.warn('[Device Monitor CardEditor] Failed to set language:', err);
+        // Still render on error
+        this.render();
+      });
+    } else {
+      // Render immediately if no hass
+      this.render();
     }
   }
 
@@ -1178,6 +1349,7 @@ class DeviceMonitorCardEditor extends HTMLElement {
       return;
     }
 
+    const l = (key) => localizationHelper.localize(`editor.${key}`);
     const entityType = this._config.entity_type || 'battery';
     const showBatteryThreshold = entityType === 'battery';
     const showToggleOption = entityType === 'light';
@@ -1236,44 +1408,44 @@ class DeviceMonitorCardEditor extends HTMLElement {
       <div class="card-config">
         <div class="option">
           <div class="label-container">
-            <label>Title</label>
-            <div class="description">Card title text</div>
+            <label>${l('title')}</label>
+            <div class="description">${l('title_description')}</div>
           </div>
           <input
             id="title"
             type="text"
             value="${this._config.title || ''}"
-            placeholder="Auto"
+            placeholder="${l('auto_placeholder')}"
           />
         </div>
 
         <div class="option">
           <div class="label-container">
-            <label>Entity Type</label>
-            <div class="description">Type of entities to monitor</div>
+            <label>${l('entity_type')}</label>
+            <div class="description">${l('entity_type_description')}</div>
           </div>
           <select id="entity_type">
-            <option value="battery" ${entityType === 'battery' ? 'selected' : ''}>Battery</option>
-            <option value="contact" ${entityType === 'contact' ? 'selected' : ''}>Contact Sensors</option>
-            <option value="light" ${entityType === 'light' ? 'selected' : ''}>Lights</option>
+            <option value="battery" ${entityType === 'battery' ? 'selected' : ''}>${l('entity_type_battery')}</option>
+            <option value="contact" ${entityType === 'contact' ? 'selected' : ''}>${l('entity_type_contact')}</option>
+            <option value="light" ${entityType === 'light' ? 'selected' : ''}>${l('entity_type_light')}</option>
           </select>
         </div>
 
         <div class="option">
           <div class="label-container">
-            <label>Filter</label>
-            <div class="description">Which devices to show</div>
+            <label>${l('filter')}</label>
+            <div class="description">${l('filter_description')}</div>
           </div>
           <select id="filter">
-            <option value="alert" ${this._config.filter === 'alert' || !this._config.filter ? 'selected' : ''}>Only Alerts</option>
-            <option value="all" ${this._config.filter === 'all' ? 'selected' : ''}>All Devices</option>
+            <option value="alert" ${this._config.filter === 'alert' || !this._config.filter ? 'selected' : ''}>${l('filter_alert')}</option>
+            <option value="all" ${this._config.filter === 'all' ? 'selected' : ''}>${l('filter_all')}</option>
           </select>
         </div>
 
         <div class="option ${showBatteryThreshold ? '' : 'hidden'}" id="battery_threshold_option">
           <div class="label-container">
-            <label>Battery Threshold</label>
-            <div class="description">Low battery percentage threshold</div>
+            <label>${l('battery_threshold')}</label>
+            <div class="description">${l('battery_threshold_description')}</div>
           </div>
           <input
             id="battery_threshold"
@@ -1286,68 +1458,68 @@ class DeviceMonitorCardEditor extends HTMLElement {
 
         <div class="option">
           <div class="label-container">
-            <label>Group By</label>
-            <div class="description">Group devices by area or floor</div>
+            <label>${l('group_by')}</label>
+            <div class="description">${l('group_by_description')}</div>
           </div>
           <select id="group_by">
-            <option value="" ${!this._config.group_by ? 'selected' : ''}>None</option>
-            <option value="area" ${this._config.group_by === 'area' ? 'selected' : ''}>Area</option>
-            <option value="floor" ${this._config.group_by === 'floor' ? 'selected' : ''}>Floor</option>
+            <option value="" ${!this._config.group_by ? 'selected' : ''}>${l('group_by_none')}</option>
+            <option value="area" ${this._config.group_by === 'area' ? 'selected' : ''}>${l('group_by_area')}</option>
+            <option value="floor" ${this._config.group_by === 'floor' ? 'selected' : ''}>${l('group_by_floor')}</option>
           </select>
         </div>
 
         <div class="option">
           <div class="label-container">
-            <label>Sort By</label>
-            <div class="description">Sort order for devices</div>
+            <label>${l('sort_by')}</label>
+            <div class="description">${l('sort_by_description')}</div>
           </div>
           <select id="sort_by">
-            <option value="state" ${this._config.sort_by === 'state' || !this._config.sort_by ? 'selected' : ''}>State</option>
-            <option value="name" ${this._config.sort_by === 'name' ? 'selected' : ''}>Name</option>
-            <option value="last_changed" ${this._config.sort_by === 'last_changed' ? 'selected' : ''}>Last Changed</option>
+            <option value="state" ${this._config.sort_by === 'state' || !this._config.sort_by ? 'selected' : ''}>${l('sort_by_state')}</option>
+            <option value="name" ${this._config.sort_by === 'name' ? 'selected' : ''}>${l('sort_by_name')}</option>
+            <option value="last_changed" ${this._config.sort_by === 'last_changed' ? 'selected' : ''}>${l('sort_by_last_changed')}</option>
           </select>
         </div>
 
         <div class="option">
           <div class="label-container">
-            <label>Name Source</label>
-            <div class="description">Use device name or entity friendly name</div>
+            <label>${l('name_source')}</label>
+            <div class="description">${l('name_source_description')}</div>
           </div>
           <select id="name_source">
-            <option value="device" ${this._config.name_source === 'device' || !this._config.name_source ? 'selected' : ''}>Device Name</option>
-            <option value="entity" ${this._config.name_source === 'entity' ? 'selected' : ''}>Entity Name</option>
+            <option value="device" ${this._config.name_source === 'device' || !this._config.name_source ? 'selected' : ''}>${l('name_source_device')}</option>
+            <option value="entity" ${this._config.name_source === 'entity' ? 'selected' : ''}>${l('name_source_entity')}</option>
           </select>
         </div>
 
         <div class="option">
           <div class="label-container">
-            <label>Collapse</label>
-            <div class="description">Limit displayed devices (leave empty for no limit)</div>
+            <label>${l('collapse')}</label>
+            <div class="description">${l('collapse_description')}</div>
           </div>
           <input
             id="collapse"
             type="number"
             min="1"
             value="${this._config.collapse || ''}"
-            placeholder="No limit"
+            placeholder="${l('collapse_placeholder')}"
           />
         </div>
 
         <div class="option">
           <div class="label-container">
-            <label>Card Visibility</label>
-            <div class="description">When to display the card</div>
+            <label>${l('card_visibility')}</label>
+            <div class="description">${l('card_visibility_description')}</div>
           </div>
           <select id="card_visibility">
-            <option value="always" ${(this._config.card_visibility === 'always' || !this._config.card_visibility) ? 'selected' : ''}>Always</option>
-            <option value="alert" ${this._config.card_visibility === 'alert' ? 'selected' : ''}>Only on Alert</option>
+            <option value="always" ${(this._config.card_visibility === 'always' || !this._config.card_visibility) ? 'selected' : ''}>${l('visibility_always')}</option>
+            <option value="alert" ${this._config.card_visibility === 'alert' ? 'selected' : ''}>${l('visibility_alert')}</option>
           </select>
         </div>
 
         <div class="option ${showToggleOption ? '' : 'hidden'}" id="show_toggle_option">
           <div class="label-container">
-            <label>Show Toggle</label>
-            <div class="description">Show toggle switch to turn lights on/off</div>
+            <label>${l('show_toggle')}</label>
+            <div class="description">${l('show_toggle_description')}</div>
           </div>
           <input
             id="show_toggle"
@@ -1358,8 +1530,8 @@ class DeviceMonitorCardEditor extends HTMLElement {
 
         <div class="option">
           <div class="label-container">
-            <label>Debug Mode</label>
-            <div class="description">Enable debug logging in browser console</div>
+            <label>${l('debug_mode')}</label>
+            <div class="description">${l('debug_mode_description')}</div>
           </div>
           <input
             id="debug"
@@ -1582,7 +1754,7 @@ class DeviceMonitorBadge extends HTMLElement {
       }
 
       // Evaluate state using strategy
-      const stateInfo = strategy.evaluateState({ ...entity, entity_id: entityId }, this._config);
+      const stateInfo = strategy.evaluateState({ ...entity, entity_id: entityId }, this._config, this._hass);
 
       // For light and contact types, create unique entries per entity since one device can have multiple entities
       // For battery type, use deviceId as key to deduplicate (one battery per device)
@@ -1836,6 +2008,18 @@ class DeviceMonitorBadge extends HTMLElement {
       return;
     }
 
+    // Always wait for translations to be loaded before rendering
+    // This prevents race conditions where translations aren't ready yet
+    localizationHelper.setLanguage(this._hass).then(() => {
+      this._renderBadge();
+    }).catch(err => {
+      console.warn('[Device Monitor Badge] Failed to set language:', err);
+      this._renderBadge();
+    });
+  }
+
+  _renderBadge() {
+    const isInEditMode = this._isInEditMode();
     const { alertDevices, totalDevices } = this._getDevices();
     const strategy = ENTITY_TYPES[this._config.entity_type];
     const alertCount = alertDevices.length;
@@ -1994,15 +2178,44 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
       : { action: 'none' };
 
     this._config = { ...config, tap_action: tapAction };
-    
+
     // Ensure tap_action is initialized
     if (!this._config.tap_action) {
       this._config.tap_action = { action: 'none' };
     }
 
     if (!this._rendered) {
-      this.render();
+      this._renderEditor();
       this._rendered = true;
+    }
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    // Log hass object for debugging
+    if (hass && hass.locale) {
+      console.log(`[Device Monitor BadgeEditor] Hass locale detected:`, hass.locale);
+    }
+    // Trigger re-render when language might have changed
+    if (this._rendered && this._config) {
+      this._renderEditor();
+    }
+  }
+
+  _renderEditor() {
+    // Load translations and wait before rendering
+    if (this._hass) {
+      localizationHelper.setLanguage(this._hass).then(() => {
+        // Render after language is loaded
+        this.render();
+      }).catch(err => {
+        console.warn('[Device Monitor BadgeEditor] Failed to set language:', err);
+        // Still render on error
+        this.render();
+      });
+    } else {
+      // Render immediately if no hass
+      this.render();
     }
   }
 
@@ -2039,6 +2252,8 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
     }
 
     try {
+      const l = (key) => localizationHelper.localize(`editor.${key}`);
+
       // Ensure tap_action is initialized before rendering
       if (!this._config.tap_action) {
         this._config.tap_action = { action: 'none' };
@@ -2106,33 +2321,33 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
       <div class="badge-config">
         <div class="option">
           <div class="label-container">
-            <label>Title</label>
-            <div class="description">Badge title text</div>
+            <label>${l('title')}</label>
+            <div class="description">${l('title_description')}</div>
           </div>
           <input
             id="title"
             type="text"
             value="${this._config.title || ''}"
-            placeholder="Auto"
+            placeholder="${l('auto_placeholder')}"
           />
         </div>
 
         <div class="option">
           <div class="label-container">
-            <label>Entity Type</label>
-            <div class="description">Type of entities to monitor</div>
+            <label>${l('entity_type')}</label>
+            <div class="description">${l('entity_type_description')}</div>
           </div>
           <select id="entity_type">
-            <option value="battery" ${entityType === 'battery' ? 'selected' : ''}>Battery</option>
-            <option value="contact" ${entityType === 'contact' ? 'selected' : ''}>Contact Sensors</option>
-            <option value="light" ${entityType === 'light' ? 'selected' : ''}>Lights</option>
+            <option value="battery" ${entityType === 'battery' ? 'selected' : ''}>${l('entity_type_battery')}</option>
+            <option value="contact" ${entityType === 'contact' ? 'selected' : ''}>${l('entity_type_contact')}</option>
+            <option value="light" ${entityType === 'light' ? 'selected' : ''}>${l('entity_type_light')}</option>
           </select>
         </div>
 
         <div class="option ${showBatteryThreshold ? '' : 'hidden'}" id="battery_threshold_option">
           <div class="label-container">
-            <label>Battery Threshold</label>
-            <div class="description">Low battery percentage threshold</div>
+            <label>${l('battery_threshold')}</label>
+            <div class="description">${l('battery_threshold_description')}</div>
           </div>
           <input
             id="battery_threshold"
@@ -2145,86 +2360,86 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
 
         <div class="option">
           <div class="label-container">
-            <label>Card Visibility</label>
-            <div class="description">When to display the card</div>
+            <label>${l('card_visibility')}</label>
+            <div class="description">${l('badge_visibility_description')}</div>
           </div>
           <select id="badge_visibility">
-            <option value="always" ${(this._config.badge_visibility === 'always' || !this._config.badge_visibility) ? 'selected' : ''}>Always</option>
-            <option value="alert" ${this._config.badge_visibility === 'alert' ? 'selected' : ''}>Only on Alert</option>
+            <option value="always" ${(this._config.badge_visibility === 'always' || !this._config.badge_visibility) ? 'selected' : ''}>${l('visibility_always')}</option>
+            <option value="alert" ${this._config.badge_visibility === 'alert' ? 'selected' : ''}>${l('visibility_alert')}</option>
           </select>
         </div>
 
         <div class="option">
           <div class="label-container">
-            <label>Tap Action</label>
-            <div class="description">Action when badge is tapped</div>
+            <label>${l('tap_action')}</label>
+            <div class="description">${l('tap_action_description')}</div>
           </div>
           <select id="tap_action_type">
-            <option value="none" ${tapActionType === 'none' ? 'selected' : ''}>None</option>
-            <option value="navigate" ${tapActionType === 'navigate' ? 'selected' : ''}>Navigate</option>
-            <option value="url" ${tapActionType === 'url' ? 'selected' : ''}>URL</option>
-            <option value="call-service" ${tapActionType === 'call-service' ? 'selected' : ''}>Call Service</option>
-            <option value="toggle" ${tapActionType === 'toggle' ? 'selected' : ''}>Toggle</option>
-            <option value="more-info" ${tapActionType === 'more-info' ? 'selected' : ''}>More Info</option>
+            <option value="none" ${tapActionType === 'none' ? 'selected' : ''}>${l('tap_action_none')}</option>
+            <option value="navigate" ${tapActionType === 'navigate' ? 'selected' : ''}>${l('tap_action_navigate')}</option>
+            <option value="url" ${tapActionType === 'url' ? 'selected' : ''}>${l('tap_action_url')}</option>
+            <option value="call-service" ${tapActionType === 'call-service' ? 'selected' : ''}>${l('tap_action_call_service')}</option>
+            <option value="toggle" ${tapActionType === 'toggle' ? 'selected' : ''}>${l('tap_action_toggle')}</option>
+            <option value="more-info" ${tapActionType === 'more-info' ? 'selected' : ''}>${l('tap_action_more_info')}</option>
           </select>
         </div>
 
         <div class="option ${tapActionType !== 'navigate' ? 'hidden' : ''}" id="tap_action_navigate_option">
           <div class="label-container">
-            <label>Navigation Path</label>
-            <div class="description">Path to navigate to (e.g., /lovelace/0)</div>
+            <label>${l('navigation_path')}</label>
+            <div class="description">${l('navigation_path_description')}</div>
           </div>
           <input
             id="tap_action_navigation_path"
             type="text"
             value="${(tapAction.navigation_path) || ''}"
-            placeholder="/lovelace/0"
+            placeholder="${l('navigation_path_placeholder')}"
           />
         </div>
 
         <div class="option ${tapActionType !== 'url' ? 'hidden' : ''}" id="tap_action_url_option">
           <div class="label-container">
-            <label>URL Path</label>
-            <div class="description">URL to open (e.g., https://example.com or /local/page.html)</div>
+            <label>${l('url_path')}</label>
+            <div class="description">${l('url_path_description')}</div>
           </div>
           <input
             id="tap_action_url_path"
             type="text"
             value="${(tapAction.url_path) || ''}"
-            placeholder="https://example.com"
+            placeholder="${l('url_path_placeholder')}"
           />
         </div>
 
         <div class="option ${tapActionType !== 'call-service' ? 'hidden' : ''}" id="tap_action_service_option">
           <div class="label-container">
-            <label>Service</label>
-            <div class="description">Service to call (e.g., light.turn_on)</div>
+            <label>${l('service')}</label>
+            <div class="description">${l('service_description')}</div>
           </div>
           <input
             id="tap_action_service"
             type="text"
             value="${(tapAction.service) || ''}"
-            placeholder="light.turn_on"
+            placeholder="${l('service_placeholder')}"
           />
         </div>
 
         <div class="option ${(tapActionType !== 'toggle' && tapActionType !== 'more-info') ? 'hidden' : ''}" id="tap_action_entity_option">
           <div class="label-container">
-            <label>Entity ID</label>
-            <div class="description">Entity ID for toggle or more-info action</div>
+            <label>${l('entity_id')}</label>
+            <div class="description">${l('entity_id_description')}</div>
           </div>
           <input
             id="tap_action_entity_id"
             type="text"
             value="${(tapAction.entity_id) || ''}"
-            placeholder="light.living_room"
+            placeholder="${l('entity_id_placeholder')}"
           />
         </div>
 
         <div class="option">
           <div class="label-container">
-            <label>Debug Mode</label>
-            <div class="description">Enable debug logging in browser console</div>
+            <label>${l('debug_mode')}</label>
+            <div class="description">${l('debug_mode_description')}</div>
           </div>
           <input
             id="debug"

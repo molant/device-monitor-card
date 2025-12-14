@@ -601,6 +601,37 @@ The card uses Home Assistant's CSS variables for theming:
 
 The card automatically adapts to your Home Assistant theme.
 
+## Localization
+
+The Device Monitor Card supports multiple languages! The configuration editor UI is fully translatable, and the display adapts to your Home Assistant language settings.
+
+### Supported Languages
+
+- 🇬🇧 English (en) - Default language
+- 🇪🇸 Spanish (es) - Community contribution
+
+### Using a Different Language
+
+To use the card in a different language:
+
+1. Go to Home Assistant Settings → User Profile
+2. Change your language preference
+3. Refresh your browser (Ctrl+F5 or Cmd+Shift+R)
+4. Open the card or badge editor to see the localized interface
+
+The card editor labels, descriptions, and options will automatically appear in your selected language (if available).
+
+### Contributing Translations
+
+We welcome translations for additional languages! If you'd like to contribute:
+
+1. Check the [Translation Contribution Guide](./dist/translations/README.md) for detailed instructions
+2. Fork the [repository](https://github.com/molant/device-monitor-card)
+3. Create a translation file (e.g., `dist/translations/fr.json` for French)
+4. Submit a pull request with your translation
+
+The process is straightforward and doesn't require any coding knowledge - just translate the English strings to your language!
+
 ## Browser Compatibility
 
 - Chrome/Edge: ✅ Fully supported
