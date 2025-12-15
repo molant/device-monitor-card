@@ -1,3 +1,9 @@
+### v1.3.1 (2025-12-15)
+
+**Fixes:**
+-  interpolate version in console output to avoid duplicate updates
+-  localization files missing in release
+
 
 ### v1.3.0 (2025-12-14)
 
