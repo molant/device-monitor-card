@@ -39,13 +39,23 @@ Edit files in the `src/` directory:
 The build process embeds all translation files into the JavaScript for single-file deployment:
 
 ```bash
-./scripts/build.sh
+npm run build
+```
+
+Or use the bash script directly:
+```bash
+./scripts/build.js
 ```
 
 This creates `dist/device-monitor-card.js` with:
 - All translations embedded as a JavaScript object
 - Synchronous translation loading (no fetch required)
 - Ready for HACS deployment
+
+You can also run the full test (build + syntax check):
+```bash
+npm test
+```
 
 ### 3. Testing Locally
 
@@ -63,6 +73,11 @@ This creates `dist/device-monitor-card.js` with:
 
 Pre-releases are great for testing before official releases:
 
+```bash
+npm run prerelease
+```
+
+Or use the script directly:
 ```bash
 ./scripts/create-prerelease.sh
 ```
@@ -111,6 +126,11 @@ To add a new language:
 Releases use semantic versioning based on conventional commits:
 
 ```bash
+npm run release
+```
+
+Or use the script directly:
+```bash
 ./scripts/create-release.sh
 ```
 
@@ -144,7 +164,7 @@ Then runs the build script to generate `dist/device-monitor-card.js` with the up
 
 ## Build Script Details
 
-The `scripts/build.sh` script performs these steps:
+The `scripts/build.js` Node.js script (called via `npm run build`) performs these steps:
 
 1. **Validates** that source files exist
 2. **Reads** all `src/translations/*.json` files

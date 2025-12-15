@@ -212,7 +212,7 @@ log_success "Files updated"
 log_info "Building dist/device-monitor-card.js with embedded translations..."
 
 # Run the build script
-./scripts/build.sh
+npm run build
 
 if [ ! -f "dist/device-monitor-card.js" ]; then
     log_error "Build failed - dist/device-monitor-card.js not created!"

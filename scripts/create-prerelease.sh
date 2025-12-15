@@ -98,7 +98,7 @@ fi
 
 # Build the dist file
 echo "Building dist/device-monitor-card.js with embedded translations..."
-./scripts/build.sh
+npm run build
 
 if [ ! -f "dist/device-monitor-card.js" ]; then
     echo "Error: Build failed - dist/device-monitor-card.js not created!"
