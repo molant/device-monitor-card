@@ -770,6 +770,13 @@ MIT License - see LICENSE file for details
 
 ## Changelog
 
+### v1.3.0 (2025-12-14)
+
+**Features:**
+- **Localization support**: Card and badge UI now supports multiple languages with translation files for English, Spanish, and German
+- **Unavailable device display**: New configuration option to show/hide devices with unavailable state
+- **Lock support for contact sensors**: Lock entities are now included when monitoring contact sensors
+
 ### v1.2.2 (2025-12-11)
 
 - **Fix card visibility options**: INow it hides correctly the same as the badge.

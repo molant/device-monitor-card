@@ -15,7 +15,7 @@
 /**
  * Localization Helper for multi-language support
  */
-const CARD_VERSION = '1.2.2';
+const CARD_VERSION = '1.3.0';
 
 class LocalizationHelper {
   constructor() {
@@ -1349,7 +1349,7 @@ class DeviceMonitorCardEditor extends HTMLElement {
   set hass(hass) {
     this._hass = hass;
     // Log hass object for debugging
-    if (hass && hass.locale) {
+    if (this._config?.debug && hass && hass.locale) {
       console.log('[Device Monitor CardEditor] Hass locale detected:', hass.locale);
     }
     // Trigger re-render when language might have changed
@@ -2131,7 +2131,7 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
   set hass(hass) {
     this._hass = hass;
     // Log hass object for debugging
-    if (hass && hass.locale) {
+    if (this._config?.debug && hass && hass.locale) {
       console.log('[Device Monitor BadgeEditor] Hass locale detected:', hass.locale);
     }
     // Trigger re-render when language might have changed

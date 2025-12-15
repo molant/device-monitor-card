@@ -184,20 +184,32 @@ log_info "Updating files..."
 # Update package.json
 sed -i '' "s/\"version\": \"[^\"]*\"/\"version\": \"${NEW_VERSION}\"/" package.json
 
-# Update dist/device-monitor-card.js (line 10)
+# Update dist/device-monitor-card.js (line 10 and CARD_VERSION constant on line 18)
 sed -i '' "10s/\* @version .*/\* @version ${NEW_VERSION}/" dist/device-monitor-card.js
+sed -i '' "s/const CARD_VERSION = '[^']*'/const CARD_VERSION = '${NEW_VERSION}'/" dist/device-monitor-card.js
 
 # Update README.md - insert changelog entry after "## Changelog" heading
-awk -v entry="$CHANGELOG_ENTRY" '
+# Write changelog entry to temp file to preserve newlines
+CHANGELOG_TEMP=$(mktemp)
+echo "$CHANGELOG_ENTRY" > "$CHANGELOG_TEMP"
+
+# Use awk to insert the changelog entry
+awk -v temp_file="$CHANGELOG_TEMP" '
 /^## Changelog$/ {
     print
     print ""
-    print entry
+    while ((getline line < temp_file) > 0) {
+        print line
+    }
+    close(temp_file)
     print ""
     next
 }
 { print }
 ' README.md > README.md.tmp && mv README.md.tmp README.md
+
+# Clean up temp file
+rm -f "$CHANGELOG_TEMP"
 
 log_success "Files updated"
 
@@ -222,13 +234,28 @@ log_success "Changes committed and pushed"
 
 log_info "Creating GitHub release..."
 
+# Create a temporary directory for release assets
+RELEASE_DIR=$(mktemp -d)
+cp dist/device-monitor-card.js "$RELEASE_DIR/"
+cp -r dist/translations "$RELEASE_DIR/"
+
+# Create a zip file with all assets
+cd "$RELEASE_DIR"
+zip -r device-monitor-card.zip device-monitor-card.js translations/
+cd "$REPO_DIR"
+
 # Prepare release notes - escape newlines for gh command
 RELEASE_NOTES=$(printf '%s\n' "$CHANGELOG_ENTRY")
 
 gh release create "v${NEW_VERSION}" \
     --title "v${NEW_VERSION}" \
     --notes "$RELEASE_NOTES" \
-    dist/device-monitor-card.js
+    dist/device-monitor-card.js \
+    dist/translations/*.json \
+    "$RELEASE_DIR/device-monitor-card.zip"
+
+# Clean up
+rm -rf "$RELEASE_DIR"
 
 log_success "Release created successfully!"
 
