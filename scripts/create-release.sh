@@ -55,9 +55,14 @@ if ! gh auth status &> /dev/null; then
     exit 1
 fi
 
-# Check if dist file exists
-if [ ! -f "dist/device-monitor-card.js" ]; then
-    log_error "dist/device-monitor-card.js not found!"
+# Check if source files exist
+if [ ! -f "src/device-monitor-card.js" ]; then
+    log_error "src/device-monitor-card.js not found!"
+    exit 1
+fi
+
+if [ ! -d "src/translations" ]; then
+    log_error "src/translations/ directory not found!"
     exit 1
 fi
 
@@ -184,30 +189,45 @@ log_info "Updating files..."
 # Update package.json
 sed -i '' "s/\"version\": \"[^\"]*\"/\"version\": \"${NEW_VERSION}\"/" package.json
 
-# Update dist/device-monitor-card.js (line 10)
-sed -i '' "10s/\* @version .*/\* @version ${NEW_VERSION}/" dist/device-monitor-card.js
+# Update src/device-monitor-card.js (line 10 and CARD_VERSION constant)
+sed -i '' "10s/\* @version .*/\* @version ${NEW_VERSION}/" src/device-monitor-card.js
+sed -i '' "s/const CARD_VERSION = '[^']*'/const CARD_VERSION = '${NEW_VERSION}'/" src/device-monitor-card.js
 
-# Update README.md - insert changelog entry after "## Changelog" heading
-awk -v entry="$CHANGELOG_ENTRY" '
-/^## Changelog$/ {
-    print
-    print ""
-    print entry
-    print ""
-    next
-}
-{ print }
-' README.md > README.md.tmp && mv README.md.tmp README.md
+# Update CHANGELOG.md - insert changelog entry at the top
+# Write changelog entry to temp file to preserve newlines
+CHANGELOG_TEMP=$(mktemp)
+echo "$CHANGELOG_ENTRY" > "$CHANGELOG_TEMP"
+echo "" >> "$CHANGELOG_TEMP"
+
+# Prepend to CHANGELOG.md
+cat CHANGELOG.md >> "$CHANGELOG_TEMP"
+mv "$CHANGELOG_TEMP" CHANGELOG.md
 
 log_success "Files updated"
 
 # ============================================================================
-# 6. GIT COMMIT AND PUSH
+# 6. BUILD DIST FILE
+# ============================================================================
+
+log_info "Building dist/device-monitor-card.js with embedded translations..."
+
+# Run the build script
+npm run build
+
+if [ ! -f "dist/device-monitor-card.js" ]; then
+    log_error "Build failed - dist/device-monitor-card.js not created!"
+    exit 1
+fi
+
+log_success "Build complete"
+
+# ============================================================================
+# 7. GIT COMMIT AND PUSH
 # ============================================================================
 
 log_info "Committing changes..."
 
-git add package.json dist/device-monitor-card.js README.md
+git add package.json src/device-monitor-card.js CHANGELOG.md dist/device-monitor-card.js
 
 git commit -m "bump: v${NEW_VERSION}"
 
@@ -222,9 +242,10 @@ log_success "Changes committed and pushed"
 
 log_info "Creating GitHub release..."
 
-# Prepare release notes - escape newlines for gh command
+# Prepare release notes
 RELEASE_NOTES=$(printf '%s\n' "$CHANGELOG_ENTRY")
 
+# Create release with built file (translations are now embedded)
 gh release create "v${NEW_VERSION}" \
     --title "v${NEW_VERSION}" \
     --notes "$RELEASE_NOTES" \

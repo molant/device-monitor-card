@@ -7,7 +7,6 @@
  * - Device Monitor Card: Full card with device list and details
  * - Device Monitor Badge: Compact badge showing alert count
  *
- * @version 1.3.0
  * @author molant
  * @license MIT
  */
@@ -15,282 +14,91 @@
 /**
  * Localization Helper for multi-language support
  */
-
-
-const EMBEDDED_TRANSLATIONS = {
-  'de': {
-  "editor": {
-    "title": "Titel",
-    "title_description": "Kartentitel",
-    "auto_placeholder": "Automatisch",
-    "entity_type": "Entitätstyp",
-    "entity_type_description": "Zu überwachender Entitätstyp",
-    "entity_type_battery": "Batterie",
-    "entity_type_contact": "Kontaktsensoren",
-    "entity_type_light": "Lichter",
-    "filter": "Filter",
-    "filter_description": "Welche Geräte angezeigt werden",
-    "filter_alert": "Nur Warnungen",
-    "filter_all": "Alle Geräte",
-    "show_unavailable": "Auch nicht verfügbare Geräte anzeigen",
-    "show_unavailable_description": "Geräte mit Status \"nicht verfügbar\" einbeziehen",
-    "battery_threshold": "Batterieschwelle",
-    "battery_threshold_description": "Grenzwert für niedrige Batterie in Prozent",
-    "group_by": "Gruppieren nach",
-    "group_by_description": "Geräte nach Bereich oder Etage gruppieren",
-    "group_by_none": "Keine",
-    "group_by_area": "Bereich",
-    "group_by_floor": "Etage",
-    "sort_by": "Sortieren nach",
-    "sort_by_description": "Sortierreihenfolge der Geräte",
-    "sort_by_state": "Status",
-    "sort_by_name": "Name",
-    "sort_by_last_changed": "Letzte Änderung",
-    "name_source": "Namensquelle",
-    "name_source_description": "Gerätename oder Anzeigename der Entität verwenden",
-    "name_source_device": "Gerätename",
-    "name_source_entity": "Entitätsname",
-    "collapse": "Einklappen",
-    "collapse_description": "Anzahl angezeigter Geräte begrenzen (leer lassen für kein Limit)",
-    "collapse_placeholder": "Kein Limit",
-    "card_visibility": "Kartensichtbarkeit",
-    "card_visibility_description": "Wann die Karte angezeigt wird",
-    "badge_visibility_description": "Wann das Badge angezeigt wird",
-    "visibility_always": "Immer",
-    "visibility_alert": "Nur bei Warnung",
-    "show_toggle": "Schalter anzeigen",
-    "show_toggle_description": "Schalter zum Ein-/Ausschalten von Lichtern anzeigen",
-    "debug_mode": "Debugmodus",
-    "debug_mode_description": "Debug-Logs in der Browserkonsole aktivieren",
-    "tap_action": "Tippen-Aktion",
-    "tap_action_description": "Aktion beim Tippen auf das Badge",
-    "tap_action_none": "Keine",
-    "tap_action_navigate": "Navigieren",
-    "tap_action_url": "URL",
-    "tap_action_call_service": "Service aufrufen",
-    "tap_action_toggle": "Umschalten",
-    "tap_action_more_info": "Details anzeigen",
-    "navigation_path": "Navigationspfad",
-    "navigation_path_description": "Pfad zum Navigieren (z. B. /lovelace/0)",
-    "navigation_path_placeholder": "/lovelace/0",
-    "url_path": "URL-Pfad",
-    "url_path_description": "Zu öffnende URL (z. B. https://example.com oder /local/page.html)",
-    "url_path_placeholder": "https://example.com",
-    "service": "Service",
-    "service_description": "Aufzurufender Service (z. B. light.turn_on)",
-    "service_placeholder": "light.turn_on",
-    "entity_id": "Entitäts-ID",
-    "entity_id_description": "Entitäts-ID für Umschalt- oder Detailaktion",
-    "entity_id_placeholder": "light.living_room"
-  },
-  "labels": {
-    "last_changed": "Zuletzt geändert"
-  },
-  "empty_messages": {
-    "battery": "Alle Batterien sind OK!",
-    "contact": "Alle Türen und Fenster sind geschlossen!",
-    "light": "Alle Lichter sind aus!"
-  },
-  "default_titles": {
-    "battery": "Batterie schwach",
-    "contact": "Türen & Fenster offen",
-    "light": "Lichter an"
-  }
-}
-,
-  'en': {
-  "editor": {
-    "title": "Title",
-    "title_description": "Card title text",
-    "auto_placeholder": "Auto",
-    "entity_type": "Entity Type",
-    "entity_type_description": "Type of entities to monitor",
-    "entity_type_battery": "Battery",
-    "entity_type_contact": "Contact Sensors",
-    "entity_type_light": "Lights",
-    "filter": "Filter",
-    "filter_description": "Which devices to show",
-    "filter_alert": "Only Alerts",
-    "filter_all": "All Devices",
-    "show_unavailable": "Also display unavailable devices",
-    "show_unavailable_description": "Include devices whose state is unavailable",
-    "battery_threshold": "Battery Threshold",
-    "battery_threshold_description": "Low battery percentage threshold",
-    "group_by": "Group By",
-    "group_by_description": "Group devices by area or floor",
-    "group_by_none": "None",
-    "group_by_area": "Area",
-    "group_by_floor": "Floor",
-    "sort_by": "Sort By",
-    "sort_by_description": "Sort order for devices",
-    "sort_by_state": "State",
-    "sort_by_name": "Name",
-    "sort_by_last_changed": "Last Changed",
-    "name_source": "Name Source",
-    "name_source_description": "Use device name or entity friendly name",
-    "name_source_device": "Device Name",
-    "name_source_entity": "Entity Name",
-    "collapse": "Collapse",
-    "collapse_description": "Limit displayed devices (leave empty for no limit)",
-    "collapse_placeholder": "No limit",
-    "card_visibility": "Card Visibility",
-    "card_visibility_description": "When to display the card",
-    "badge_visibility_description": "When to display the badge",
-    "visibility_always": "Always",
-    "visibility_alert": "Only on Alert",
-    "show_toggle": "Show Toggle",
-    "show_toggle_description": "Show toggle switch to turn lights on/off",
-    "debug_mode": "Debug Mode",
-    "debug_mode_description": "Enable debug logging in browser console",
-    "tap_action": "Tap Action",
-    "tap_action_description": "Action when badge is tapped",
-    "tap_action_none": "None",
-    "tap_action_navigate": "Navigate",
-    "tap_action_url": "URL",
-    "tap_action_call_service": "Call Service",
-    "tap_action_toggle": "Toggle",
-    "tap_action_more_info": "More Info",
-    "navigation_path": "Navigation Path",
-    "navigation_path_description": "Path to navigate to (e.g., /lovelace/0)",
-    "navigation_path_placeholder": "/lovelace/0",
-    "url_path": "URL Path",
-    "url_path_description": "URL to open (e.g., https://example.com or /local/page.html)",
-    "url_path_placeholder": "https://example.com",
-    "service": "Service",
-    "service_description": "Service to call (e.g., light.turn_on)",
-    "service_placeholder": "light.turn_on",
-    "entity_id": "Entity ID",
-    "entity_id_description": "Entity ID for toggle or more-info action",
-    "entity_id_placeholder": "light.living_room"
-  },
-  "labels": {
-    "last_changed": "Last changed"
-  },
-  "empty_messages": {
-    "battery": "All batteries are OK!",
-    "contact": "All doors and windows are closed!",
-    "light": "All lights are off!"
-  },
-  "default_titles": {
-    "battery": "Low Battery",
-    "contact": "Open Doors & Windows",
-    "light": "Lights On"
-  }
-}
-,
-  'es': {
-  "editor": {
-    "title": "Título",
-    "title_description": "Texto del título de la tarjeta",
-    "auto_placeholder": "Automático",
-    "entity_type": "Tipo de Entidad",
-    "entity_type_description": "Tipo de entidades a monitorear",
-    "entity_type_battery": "Batería",
-    "entity_type_contact": "Sensores de Contacto",
-    "entity_type_light": "Luces",
-    "filter": "Filtro",
-    "filter_description": "Qué dispositivos mostrar",
-    "filter_alert": "Solo Alertas",
-    "filter_all": "Todos los Dispositivos",
-    "show_unavailable": "Mostrar también dispositivos no disponibles",
-    "show_unavailable_description": "Incluir dispositivos cuyo estado sea no disponible",
-    "battery_threshold": "Umbral de Batería",
-    "battery_threshold_description": "Porcentaje de batería baja",
-    "group_by": "Agrupar Por",
-    "group_by_description": "Agrupar dispositivos por área o piso",
-    "group_by_none": "Ninguno",
-    "group_by_area": "Área",
-    "group_by_floor": "Piso",
-    "sort_by": "Ordenar Por",
-    "sort_by_description": "Orden de los dispositivos",
-    "sort_by_state": "Estado",
-    "sort_by_name": "Nombre",
-    "sort_by_last_changed": "Último Cambio",
-    "name_source": "Fuente de Nombre",
-    "name_source_description": "Usar nombre del dispositivo o nombre amigable de la entidad",
-    "name_source_device": "Nombre del Dispositivo",
-    "name_source_entity": "Nombre de la Entidad",
-    "collapse": "Contraer",
-    "collapse_description": "Limitar dispositivos mostrados (dejar en blanco para sin límite)",
-    "collapse_placeholder": "Sin límite",
-    "card_visibility": "Visibilidad de la Tarjeta",
-    "card_visibility_description": "Cuándo mostrar la tarjeta",
-    "badge_visibility_description": "Cuándo mostrar la insignia",
-    "visibility_always": "Siempre",
-    "visibility_alert": "Solo en Alerta",
-    "show_toggle": "Mostrar Interruptor",
-    "show_toggle_description": "Mostrar interruptor para encender/apagar luces",
-    "debug_mode": "Modo Depuración",
-    "debug_mode_description": "Habilitar registro de depuración en consola del navegador",
-    "tap_action": "Acción al Tocar",
-    "tap_action_description": "Acción cuando se toca la insignia",
-    "tap_action_none": "Ninguno",
-    "tap_action_navigate": "Navegar",
-    "tap_action_url": "URL",
-    "tap_action_call_service": "Llamar Servicio",
-    "tap_action_toggle": "Alternar",
-    "tap_action_more_info": "Más Información",
-    "navigation_path": "Ruta de Navegación",
-    "navigation_path_description": "Ruta a navegar (p.ej., /lovelace/0)",
-    "navigation_path_placeholder": "/lovelace/0",
-    "url_path": "Ruta URL",
-    "url_path_description": "URL a abrir (p.ej., https://example.com o /local/page.html)",
-    "url_path_placeholder": "https://example.com",
-    "service": "Servicio",
-    "service_description": "Servicio a llamar (p.ej., light.turn_on)",
-    "service_placeholder": "light.turn_on",
-    "entity_id": "ID de Entidad",
-    "entity_id_description": "ID de entidad para acción de alternancia o más información",
-    "entity_id_placeholder": "light.living_room"
-  },
-  "labels": {
-    "last_changed": "Último cambio"
-  },
-  "empty_messages": {
-    "battery": "¡Todas las baterías están bien!",
-    "contact": "¡Todas las puertas y ventanas están cerradas!",
-    "light": "¡Todas las luces están apagadas!"
-  },
-  "default_titles": {
-    "battery": "Batería Baja",
-    "contact": "Puertas y Ventanas Abiertas",
-    "light": "Luces Encendidas"
-  }
-}
-
-};
-
 const CARD_VERSION = '1.3.0';
 
 class LocalizationHelper {
   constructor() {
-    this.translations = EMBEDDED_TRANSLATIONS;
+    this.translations = {};
     this.currentLanguage = 'en';
+    this.loadPromises = {};
   }
 
   async loadTranslations(language) {
-    return Promise.resolve();
+    if (this.translations[language]) {
+      return; // Already loaded
+    }
+
+    if (this.loadPromises[language]) {
+      return this.loadPromises[language]; // Already loading
+    }
+
+    this.loadPromises[language] = (async () => {
+      try {
+        const response = await fetch(`/local/community/device-monitor-card/translations/${language}.json?v=${CARD_VERSION}`);
+        if (!response.ok) {
+          throw new Error(`Translation file not found: ${language} (status: ${response.status})`);
+        }
+        const data = await response.json();
+        this.translations[language] = data;
+      } catch (error) {
+        console.warn(`[Device Monitor] Failed to load translations for ${language}:`, error);
+        // If not English, try loading English as fallback
+        if (language !== 'en') {
+          console.warn(`[Device Monitor] Attempting to load English as fallback for language: ${language}`);
+          await this.loadTranslations('en');
+          // Copy English translations to this language
+          this.translations[language] = this.translations['en'];
+        } else {
+          // Initialize empty translations for current language to prevent errors
+          // Use a complete empty structure with all sections
+          this.translations[language] = {
+            editor: {},
+            labels: {},
+            empty_messages: {},
+            default_titles: {}
+          };
+        }
+      } finally {
+        delete this.loadPromises[language];
+      }
+    })();
+
+    return this.loadPromises[language];
   }
 
   async setLanguage(hass) {
+    // Priority order for language detection:
+    // 1. hass.locale.language (most reliable - what CardEditor uses)
+    // 2. hass.config.language (fallback)
+    // 3. hass.language (fallback)
+    // 4. 'en' (default)
     const lang = hass?.locale?.language || hass?.config?.language || hass?.language || 'en';
-    const shortLang = lang.split('-')[0];
-    this.currentLanguage = this.translations[shortLang] ? shortLang : 'en';
-    return Promise.resolve();
+    const shortLang = lang.split('-')[0]; // 'es-ES' -> 'es', 'en-US' -> 'en'
+
+    // Always ensure the language is loaded, even if it's the same
+    // This handles the case where the user switched away and back to the same language
+    await this.loadTranslations(shortLang);
+    this.currentLanguage = shortLang;
   }
 
   localize(key) {
     const keys = key.split('.');
     let value = this.translations[this.currentLanguage];
+
     for (const k of keys) {
       value = value?.[k];
     }
+
+    // Fallback to English if translation missing
     if (value === undefined && this.currentLanguage !== 'en') {
       value = this.translations['en'];
       for (const k of keys) {
         value = value?.[k];
       }
     }
+
+    // Return translated value, or empty string if not found
+    // This prevents showing technical keys to users during async loading
     return value !== undefined ? value : '';
   }
 }
@@ -298,6 +106,10 @@ class LocalizationHelper {
 // Create singleton instance
 const localizationHelper = new LocalizationHelper();
 
+// Preload English translations immediately
+localizationHelper.loadTranslations('en').catch(err => {
+  console.warn('[Device Monitor] Failed to preload English translations:', err);
+});
 
 const DEFAULT_TITLE_FALLBACKS = {
   battery: 'Low Battery',

@@ -4,7 +4,8 @@
       "Bash(chmod:*)",
       "Bash(node -c:*)",
       "Bash(node -e:*)",
-      "Bash(node --check:*)"
+      "Bash(node --check:*)",
+      "Bash(./scripts/build.sh:*)"
     ]
   }
 }

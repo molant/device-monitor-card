@@ -85,9 +85,23 @@ ${COMMIT_MSG}
 
 This is a pre-release. Use with caution."
 
-# Check if dist file exists
+# Check if source files exist
+if [ ! -f "src/device-monitor-card.js" ]; then
+    echo "Error: src/device-monitor-card.js not found!"
+    exit 1
+fi
+
+if [ ! -d "src/translations" ]; then
+    echo "Error: src/translations/ directory not found!"
+    exit 1
+fi
+
+# Build the dist file
+echo "Building dist/device-monitor-card.js with embedded translations..."
+npm run build
+
 if [ ! -f "dist/device-monitor-card.js" ]; then
-    echo "Error: dist/device-monitor-card.js not found!"
+    echo "Error: Build failed - dist/device-monitor-card.js not created!"
     exit 1
 fi
 
@@ -116,7 +130,7 @@ echo "Version:    ${VERSION}"
 echo "Date/Time:  ${DATE_TIME}"
 echo ""
 echo "Release will include:"
-echo "  - dist/device-monitor-card.js"
+echo "  - dist/device-monitor-card.js (with embedded translations)"
 echo ""
 read -p "Create pre-release? (y/N) " -n 1 -r
 echo
