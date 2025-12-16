@@ -1520,6 +1520,7 @@ class DeviceMonitorCardEditor extends HTMLElement {
   constructor() {
     super();
     this._debounceTimeout = null;
+    this._currentLanguage = null;
   }
 
   setConfig(config) {
@@ -1538,9 +1539,14 @@ class DeviceMonitorCardEditor extends HTMLElement {
     if (this._config?.debug && hass && hass.locale) {
       console.log('[Device Monitor CardEditor] Hass locale detected:', hass.locale);
     }
-    // Trigger re-render when language might have changed
-    if (this._rendered && this._config) {
-      this._renderEditor();
+    // Only re-render if language changed (don't re-render on every hass update)
+    if (this._rendered && this._config && hass) {
+      const newLang = hass?.locale?.language || hass?.config?.language || hass?.language || 'en';
+      const shortLang = newLang.split('-')[0];
+      if (this._currentLanguage !== shortLang) {
+        this._currentLanguage = shortLang;
+        this._renderEditor();
+      }
     }
   }
 
@@ -1548,6 +1554,9 @@ class DeviceMonitorCardEditor extends HTMLElement {
     // Load translations and wait before rendering
     if (this._hass) {
       localizationHelper.setLanguage(this._hass).then(() => {
+        // Store the language that was just loaded
+        const lang = this._hass?.locale?.language || this._hass?.config?.language || this._hass?.language || 'en';
+        this._currentLanguage = lang.split('-')[0];
         // Render after language is loaded
         this.render();
       }).catch(err => {
@@ -2294,6 +2303,7 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
     super();
     this._debounceTimeout = null;
     this._rendered = false;
+    this._currentLanguage = null;
   }
 
   setConfig(config) {
@@ -2320,9 +2330,14 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
     if (this._config?.debug && hass && hass.locale) {
       console.log('[Device Monitor BadgeEditor] Hass locale detected:', hass.locale);
     }
-    // Trigger re-render when language might have changed
-    if (this._rendered && this._config) {
-      this._renderEditor();
+    // Only re-render if language changed (don't re-render on every hass update)
+    if (this._rendered && this._config && hass) {
+      const newLang = hass?.locale?.language || hass?.config?.language || hass?.language || 'en';
+      const shortLang = newLang.split('-')[0];
+      if (this._currentLanguage !== shortLang) {
+        this._currentLanguage = shortLang;
+        this._renderEditor();
+      }
     }
   }
 
@@ -2330,6 +2345,9 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
     // Load translations and wait before rendering
     if (this._hass) {
       localizationHelper.setLanguage(this._hass).then(() => {
+        // Store the language that was just loaded
+        const lang = this._hass?.locale?.language || this._hass?.config?.language || this._hass?.language || 'en';
+        this._currentLanguage = lang.split('-')[0];
         // Render after language is loaded
         this.render();
       }).catch(err => {
