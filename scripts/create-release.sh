@@ -166,6 +166,20 @@ if [ -n "$FEATURES" ]; then
     done <<< "$FEATURES"
 fi
 
+# Add localization section
+LOCALIZATION=$(echo "$FILTERED_COMMITS" | grep -E "^lang:" || echo "")
+if [ -n "$LOCALIZATION" ]; then
+    CHANGELOG_ENTRY="${CHANGELOG_ENTRY}
+
+**Localization:**"
+    while IFS= read -r commit; do
+        # Extract description (remove prefix)
+        DESC=$(echo "$commit" | sed -E 's/^lang:\s*//')
+        CHANGELOG_ENTRY="${CHANGELOG_ENTRY}
+- ${DESC}"
+    done <<< "$LOCALIZATION"
+fi
+
 # Add fixes section
 FIXES=$(echo "$FILTERED_COMMITS" | grep -E "^(fix:|bugfix:)" || echo "")
 if [ -n "$FIXES" ]; then
