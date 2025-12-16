@@ -1,3 +1,11 @@
+### v1.3.2 (2025-12-16)
+
+**Localization:**
+-  Add Dutch translation (thanks @EvertJob!)
+
+**Fixes:**
+-  input in settings
+
 ### v1.3.1 (2025-12-15)
 
 **Fixes:**
