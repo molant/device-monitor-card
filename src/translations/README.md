@@ -96,6 +96,7 @@ Configuration labels and descriptions for both the card and badge editors:
 Options for entity type dropdowns:
 - `entity_type_battery` - "Battery"
 - `entity_type_contact` - "Contact Sensors"
+- `entity_type_lock` - "Locks"
 - `entity_type_light` - "Lights"
 
 ### Filter Options

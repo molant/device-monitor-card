@@ -7,6 +7,7 @@
     "entity_type_description": "Zu überwachender Entitätstyp",
     "entity_type_battery": "Batterie",
     "entity_type_contact": "Kontaktsensoren",
+    "entity_type_lock": "Schlösser",
     "entity_type_light": "Lichter",
     "filter": "Filter",
     "filter_description": "Welche Geräte angezeigt werden",
@@ -69,11 +70,13 @@
   "empty_messages": {
     "battery": "Alle Batterien sind OK!",
     "contact": "Alle Türen und Fenster sind geschlossen!",
+    "lock": "Alle Schlösser sind verriegelt!",
     "light": "Alle Lichter sind aus!"
   },
   "default_titles": {
     "battery": "Batterie schwach",
     "contact": "Türen & Fenster offen",
+    "lock": "Entriegelte Schlösser",
     "light": "Lichter an"
   }
 }

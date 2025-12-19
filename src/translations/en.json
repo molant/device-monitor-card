@@ -7,6 +7,7 @@
     "entity_type_description": "Type of entities to monitor",
     "entity_type_battery": "Battery",
     "entity_type_contact": "Contact Sensors",
+    "entity_type_lock": "Locks",
     "entity_type_light": "Lights",
     "filter": "Filter",
     "filter_description": "Which devices to show",
@@ -69,11 +70,13 @@
   "empty_messages": {
     "battery": "All batteries are OK!",
     "contact": "All doors and windows are closed!",
+    "lock": "All locks are locked!",
     "light": "All lights are off!"
   },
   "default_titles": {
     "battery": "Low Battery",
     "contact": "Open Doors & Windows",
+    "lock": "Unlocked Locks",
     "light": "Lights On"
   }
 }
