@@ -7,6 +7,7 @@
     "entity_type_description": "Type entiteiten om te bewaken",
     "entity_type_battery": "Batterij",
     "entity_type_contact": "Contactsleutels",
+    "entity_type_lock": "Sloten",
     "entity_type_light": "Verlichting",
     "filter": "Filter",
     "filter_description": "Welke apparaten moeten worden getoond",
@@ -69,11 +70,13 @@
   "empty_messages": {
     "battery": "Alle batterijen zijn OK!",
     "contact": "Alle deuren en ramen zijn gesloten!",
+    "lock": "Alle sloten zijn vergrendeld!",
     "light": "Alle lichten zijn uit!"
   },
   "default_titles": {
     "battery": "Lage Batterij",
     "contact": "Open Deuren & Ramen",
+    "lock": "Ontgrendelde Sloten",
     "light": "Lichten Aan"
   }
 }

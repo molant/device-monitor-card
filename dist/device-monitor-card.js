@@ -1,7 +1,7 @@
 /**
  * Device Monitor Card & Badge
  * A custom Home Assistant Lovelace card and badge that monitors battery levels,
- * contact sensors (doors/windows), and lights with device names from the device registry.
+ * contact sensors (doors/windows), locks, and lights with device names from the device registry.
  *
  * Includes:
  * - Device Monitor Card: Full card with device list and details
@@ -26,6 +26,7 @@ const EMBEDDED_TRANSLATIONS = {
     "entity_type_description": "Zu überwachender Entitätstyp",
     "entity_type_battery": "Batterie",
     "entity_type_contact": "Kontaktsensoren",
+    "entity_type_lock": "Schlösser",
     "entity_type_light": "Lichter",
     "filter": "Filter",
     "filter_description": "Welche Geräte angezeigt werden",
@@ -88,11 +89,13 @@ const EMBEDDED_TRANSLATIONS = {
   "empty_messages": {
     "battery": "Alle Batterien sind OK!",
     "contact": "Alle Türen und Fenster sind geschlossen!",
+    "lock": "Alle Schlösser sind verriegelt!",
     "light": "Alle Lichter sind aus!"
   },
   "default_titles": {
     "battery": "Batterie schwach",
     "contact": "Türen & Fenster offen",
+    "lock": "Entriegelte Schlösser",
     "light": "Lichter an"
   }
 }
@@ -106,6 +109,7 @@ const EMBEDDED_TRANSLATIONS = {
     "entity_type_description": "Type of entities to monitor",
     "entity_type_battery": "Battery",
     "entity_type_contact": "Contact Sensors",
+    "entity_type_lock": "Locks",
     "entity_type_light": "Lights",
     "filter": "Filter",
     "filter_description": "Which devices to show",
@@ -168,11 +172,13 @@ const EMBEDDED_TRANSLATIONS = {
   "empty_messages": {
     "battery": "All batteries are OK!",
     "contact": "All doors and windows are closed!",
+    "lock": "All locks are locked!",
     "light": "All lights are off!"
   },
   "default_titles": {
     "battery": "Low Battery",
     "contact": "Open Doors & Windows",
+    "lock": "Unlocked Locks",
     "light": "Lights On"
   }
 }
@@ -186,6 +192,7 @@ const EMBEDDED_TRANSLATIONS = {
     "entity_type_description": "Tipo de entidades a monitorear",
     "entity_type_battery": "Batería",
     "entity_type_contact": "Sensores de Contacto",
+    "entity_type_lock": "Cerraduras",
     "entity_type_light": "Luces",
     "filter": "Filtro",
     "filter_description": "Qué dispositivos mostrar",
@@ -248,11 +255,13 @@ const EMBEDDED_TRANSLATIONS = {
   "empty_messages": {
     "battery": "¡Todas las baterías están bien!",
     "contact": "¡Todas las puertas y ventanas están cerradas!",
+    "lock": "¡Todas las cerraduras están cerradas!",
     "light": "¡Todas las luces están apagadas!"
   },
   "default_titles": {
     "battery": "Batería Baja",
     "contact": "Puertas y Ventanas Abiertas",
+    "lock": "Cerraduras Desbloqueadas",
     "light": "Luces Encendidas"
   }
 }
@@ -266,6 +275,7 @@ const EMBEDDED_TRANSLATIONS = {
     "entity_type_description": "Type entiteiten om te bewaken",
     "entity_type_battery": "Batterij",
     "entity_type_contact": "Contactsleutels",
+    "entity_type_lock": "Sloten",
     "entity_type_light": "Verlichting",
     "filter": "Filter",
     "filter_description": "Welke apparaten moeten worden getoond",
@@ -328,11 +338,13 @@ const EMBEDDED_TRANSLATIONS = {
   "empty_messages": {
     "battery": "Alle batterijen zijn OK!",
     "contact": "Alle deuren en ramen zijn gesloten!",
+    "lock": "Alle sloten zijn vergrendeld!",
     "light": "Alle lichten zijn uit!"
   },
   "default_titles": {
     "battery": "Lage Batterij",
     "contact": "Open Deuren & Ramen",
+    "lock": "Ontgrendelde Sloten",
     "light": "Lichten Aan"
   }
 }
@@ -381,6 +393,7 @@ const localizationHelper = new LocalizationHelper();
 const DEFAULT_TITLE_FALLBACKS = {
   battery: 'Low Battery',
   contact: 'Open Doors & Windows',
+  lock: 'Unlocked Locks',
   light: 'Lights On'
 };
 
@@ -708,26 +721,19 @@ const ENTITY_TYPES = {
     // Detect if an entity is a contact sensor
     detect: (entityId, attributes) => {
       const deviceClass = attributes.device_class;
-      const isContactSensor = entityId.startsWith('binary_sensor.') && (
+      return entityId.startsWith('binary_sensor.') && (
         deviceClass === 'door' ||
         deviceClass === 'window' ||
         deviceClass === 'garage_door' ||
-        deviceClass === 'lock' ||
         deviceClass === 'opening'
       );
-
-      const isLock = entityId.startsWith('lock.');
-
-      return isContactSensor || isLock;
     },
 
     // Evaluate if the entity state is in alert condition
     evaluateState: (entity, config, hass) => {
-      const isLock = entity.entity_id?.startsWith('lock.');
-      const openStates = ['on', 'open', 'opening', 'unlocked', 'unlocking', 'jammed'];
-      const isOpen = isLock ? openStates.includes(entity.state) : entity.state === 'on';
       const stateObj = hass?.states?.[entity.entity_id];
-      const defaultDisplay = isLock ? (isOpen ? 'Unlocked' : 'Locked') : (isOpen ? 'Open' : 'Closed');
+      const isOpen = entity.state === 'on';
+      const defaultDisplay = isOpen ? 'Open' : 'Closed';
       const displayValue = stateObj ? hass.formatEntityState(stateObj) : defaultDisplay;
       return {
         value: entity.state,
@@ -740,19 +746,10 @@ const ENTITY_TYPES = {
     // Get icon for contact sensor state
     getIcon: (state) => {
       const deviceClass = state.attributes?.device_class;
-      const isLock = state.entityId?.startsWith?.('lock.');
-      const openStates = ['on', 'open', 'opening', 'unlocked', 'unlocking', 'jammed'];
-      const isOpen = isLock ? (state.isAlert || openStates.includes(state.value)) : state.value === 'on';
-
-      if (isLock) {
-        return isOpen ? 'mdi:lock-open-variant' : 'mdi:lock';
-      }
+      const isOpen = state.value === 'on';
 
       if (deviceClass === 'window') {
         return isOpen ? 'mdi:window-open' : 'mdi:window-closed';
-      }
-      if (deviceClass === 'lock') {
-        return isOpen ? 'mdi:door-open' : 'mdi:door-closed-lock';
       }
       if (deviceClass === 'garage_door') {
         return isOpen ? 'mdi:garage-open' : 'mdi:garage';
@@ -773,6 +770,57 @@ const ENTITY_TYPES = {
 
     // Default title for badge
     defaultTitle: 'Open Doors & Windows',
+
+    // Get badge color based on alert count
+    getBadgeColor: (alertCount) => {
+      if (alertCount === 0) return 'var(--success-color, #4caf50)';
+      return 'var(--label-badge-yellow, #f4b400)';
+    }
+  },
+
+  lock: {
+    name: 'Lock',
+
+    // Detect if an entity is a lock
+    detect: (entityId, attributes) => {
+      const deviceClass = attributes.device_class;
+      return entityId.startsWith('lock.') || deviceClass === 'lock';
+    },
+
+    // Evaluate if the entity state is in alert condition
+    evaluateState: (entity, config, hass) => {
+      const openStates = ['on', 'open', 'opening', 'unlocked', 'unlocking', 'jammed'];
+      const isOpen = openStates.includes(entity.state);
+      const stateObj = hass?.states?.[entity.entity_id];
+      const defaultDisplay = isOpen ? 'Unlocked' : 'Locked';
+      const displayValue = stateObj ? hass.formatEntityState(stateObj) : defaultDisplay;
+      return {
+        value: entity.state,
+        displayValue: displayValue,
+        isAlert: isOpen,
+        numericValue: null
+      };
+    },
+
+    // Get icon for lock state
+    getIcon: (state) => {
+      const openStates = ['on', 'open', 'opening', 'unlocked', 'unlocking', 'jammed'];
+      const isOpen = state.isAlert || openStates.includes(state.value);
+      return isOpen ? 'mdi:lock-open-variant' : 'mdi:lock';
+    },
+
+    // Get color for lock state
+    getColor: (state) => {
+      if (state.isUnavailable) return 'var(--disabled-text-color, #9e9e9e)';
+      return state.isAlert ? '#ffa500' : 'var(--success-color, #4caf50)';
+    },
+
+    // Get empty state message
+    emptyMessage: 'All locks are locked!',
+    emptyIcon: 'mdi:lock',
+
+    // Default title for badge
+    defaultTitle: 'Unlocked Locks',
 
     // Get badge color based on alert count
     getBadgeColor: (alertCount) => {
@@ -1760,6 +1808,7 @@ class DeviceMonitorCardEditor extends HTMLElement {
           <select id="entity_type">
             <option value="battery" ${entityType === 'battery' ? 'selected' : ''}>${l('entity_type_battery')}</option>
             <option value="contact" ${entityType === 'contact' ? 'selected' : ''}>${l('entity_type_contact')}</option>
+            <option value="lock" ${entityType === 'lock' ? 'selected' : ''}>${l('entity_type_lock')}</option>
             <option value="light" ${entityType === 'light' ? 'selected' : ''}>${l('entity_type_light')}</option>
           </select>
         </div>
@@ -2562,6 +2611,7 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
           <select id="entity_type">
             <option value="battery" ${entityType === 'battery' ? 'selected' : ''}>${l('entity_type_battery')}</option>
             <option value="contact" ${entityType === 'contact' ? 'selected' : ''}>${l('entity_type_contact')}</option>
+            <option value="lock" ${entityType === 'lock' ? 'selected' : ''}>${l('entity_type_lock')}</option>
             <option value="light" ${entityType === 'light' ? 'selected' : ''}>${l('entity_type_light')}</option>
           </select>
         </div>
@@ -2845,7 +2895,7 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: 'device-monitor-card',
   name: 'Device Monitor Card',
-  description: 'Monitor batteries, contact sensors (doors/windows), and lights with alerts and grouping',
+  description: 'Monitor batteries, contact sensors (doors/windows), locks, and lights with alerts and grouping',
   preview: false,
   documentationURL: 'https://github.com/molant/device-monitor-card'
 });
@@ -2854,7 +2904,7 @@ window.customCards.push({
 window.customCards.push({
   type: 'device-monitor-badge',
   name: 'Device Monitor Badge',
-  description: 'Compact badge showing device alert counts for batteries, contact sensors, and lights',
+  description: 'Compact badge showing device alert counts for batteries, contact sensors, locks, and lights',
   preview: false,
   documentationURL: 'https://github.com/molant/device-monitor-card'
 });
