@@ -1,3 +1,8 @@
+### v1.4.0 (2025-12-23)
+
+**Features:**
+-  locks have their own category
+
 ### v1.3.2 (2025-12-16)
 
 **Localization:**
