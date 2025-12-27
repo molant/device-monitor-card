@@ -21,6 +21,7 @@
     "exclude_operator_any": "Beliebig (ODER)",
     "exclude_operator_all": "Alle (UND)",
     "exclude_add_filter": "Filter hinzufügen",
+    "exclude_remove_filter": "Filter entfernen",
     "exclude_rule_integration": "Integration",
     "exclude_rule_device": "Gerät",
     "exclude_rule_label": "Label",

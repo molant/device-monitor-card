@@ -21,6 +21,7 @@
     "exclude_operator_any": "Willekeurig (OF)",
     "exclude_operator_all": "Alle (EN)",
     "exclude_add_filter": "Filter toevoegen",
+    "exclude_remove_filter": "Filter verwijderen",
     "exclude_rule_integration": "Integratie",
     "exclude_rule_device": "Apparaat",
     "exclude_rule_label": "Label",

@@ -21,6 +21,7 @@
     "exclude_operator_any": "Cualquiera (O)",
     "exclude_operator_all": "Todos (Y)",
     "exclude_add_filter": "Agregar filtro",
+    "exclude_remove_filter": "Eliminar filtro",
     "exclude_rule_integration": "Integración",
     "exclude_rule_device": "Dispositivo",
     "exclude_rule_label": "Etiqueta",

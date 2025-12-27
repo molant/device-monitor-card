@@ -21,6 +21,7 @@
     "exclude_operator_any": "Any (OR)",
     "exclude_operator_all": "All (AND)",
     "exclude_add_filter": "Add filter",
+    "exclude_remove_filter": "Remove filter",
     "exclude_rule_integration": "Integration",
     "exclude_rule_device": "Device",
     "exclude_rule_label": "Label",
