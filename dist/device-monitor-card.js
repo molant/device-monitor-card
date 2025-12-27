@@ -40,6 +40,7 @@ const EMBEDDED_TRANSLATIONS = {
     "exclude_operator_any": "Beliebig (ODER)",
     "exclude_operator_all": "Alle (UND)",
     "exclude_add_filter": "Filter hinzufügen",
+    "exclude_remove_filter": "Filter entfernen",
     "exclude_rule_integration": "Integration",
     "exclude_rule_device": "Gerät",
     "exclude_rule_label": "Label",
@@ -132,6 +133,7 @@ const EMBEDDED_TRANSLATIONS = {
     "exclude_operator_any": "Any (OR)",
     "exclude_operator_all": "All (AND)",
     "exclude_add_filter": "Add filter",
+    "exclude_remove_filter": "Remove filter",
     "exclude_rule_integration": "Integration",
     "exclude_rule_device": "Device",
     "exclude_rule_label": "Label",
@@ -224,6 +226,7 @@ const EMBEDDED_TRANSLATIONS = {
     "exclude_operator_any": "Cualquiera (O)",
     "exclude_operator_all": "Todos (Y)",
     "exclude_add_filter": "Agregar filtro",
+    "exclude_remove_filter": "Eliminar filtro",
     "exclude_rule_integration": "Integración",
     "exclude_rule_device": "Dispositivo",
     "exclude_rule_label": "Etiqueta",
@@ -316,6 +319,7 @@ const EMBEDDED_TRANSLATIONS = {
     "exclude_operator_any": "Willekeurig (OF)",
     "exclude_operator_all": "Alle (EN)",
     "exclude_add_filter": "Filter toevoegen",
+    "exclude_remove_filter": "Filter verwijderen",
     "exclude_rule_integration": "Integratie",
     "exclude_rule_device": "Apparaat",
     "exclude_rule_label": "Label",
@@ -2030,18 +2034,17 @@ class DeviceMonitorCardEditor extends HTMLElement {
         }
 
         .exclude-remove {
-          --mdc-icon-size: 18px;
+          --mdc-icon-size: 20px;
           --mdc-icon-button-size: 32px;
-          color: var(--error-color, #d32f2f);
-          background: rgba(211, 47, 47, 0.12);
-          border: 1px solid rgba(211, 47, 47, 0.35);
-          border-radius: 50%;
+          color: var(--secondary-text-color);
         }
 
         .exclude-remove:hover {
-          color: var(--error-color, #d32f2f);
-          background: rgba(211, 47, 47, 0.2);
-          border-color: rgba(211, 47, 47, 0.6);
+          color: var(--primary-text-color);
+        }
+
+        .exclude-remove ha-svg-icon {
+          display: block;
         }
 
         .exclude-add {
@@ -2146,7 +2149,13 @@ class DeviceMonitorCardEditor extends HTMLElement {
                       item-value-path="value"
                       allow-custom-value
                     ></ha-combo-box>
-                    <ha-icon-button class="exclude-remove" icon="mdi:close"></ha-icon-button>
+                    <mwc-icon-button class="exclude-remove" title="${l('exclude_remove_filter')}">
+                      <ha-svg-icon>
+                        <svg viewBox="0 0 24 24" focusable="false" role="img" aria-hidden="true">
+                          <path class="primary-path" d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"></path>
+                        </svg>
+                      </ha-svg-icon>
+                    </mwc-icon-button>
                   </div>
                 `).join('')}
               </div>
@@ -3065,18 +3074,17 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
         }
 
         .exclude-remove {
-          --mdc-icon-size: 18px;
+          --mdc-icon-size: 20px;
           --mdc-icon-button-size: 32px;
-          color: var(--error-color, #d32f2f);
-          background: rgba(211, 47, 47, 0.12);
-          border: 1px solid rgba(211, 47, 47, 0.35);
-          border-radius: 50%;
+          color: var(--secondary-text-color);
         }
 
         .exclude-remove:hover {
-          color: var(--error-color, #d32f2f);
-          background: rgba(211, 47, 47, 0.2);
-          border-color: rgba(211, 47, 47, 0.6);
+          color: var(--primary-text-color);
+        }
+
+        .exclude-remove ha-svg-icon {
+          display: block;
         }
 
         .exclude-add {
@@ -3184,7 +3192,13 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
                       item-value-path="value"
                       allow-custom-value
                     ></ha-combo-box>
-                    <ha-icon-button class="exclude-remove" icon="mdi:close"></ha-icon-button>
+                    <mwc-icon-button class="exclude-remove" title="${l('exclude_remove_filter')}">
+                      <ha-svg-icon>
+                        <svg viewBox="0 0 24 24" focusable="false" role="img" aria-hidden="true">
+                          <path class="primary-path" d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"></path>
+                        </svg>
+                      </ha-svg-icon>
+                    </mwc-icon-button>
                   </div>
                 `).join('')}
               </div>
