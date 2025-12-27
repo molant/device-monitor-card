@@ -1652,10 +1652,7 @@ class DeviceMonitorCardEditor extends HTMLElement {
 
         .exclude-details {
           width: 100%;
-          border: 1px solid var(--divider-color);
-          border-radius: 8px;
-          padding: 8px 12px;
-          background: var(--card-background-color);
+          padding: 8px 0;
         }
 
         .exclude-details summary {
@@ -1674,6 +1671,21 @@ class DeviceMonitorCardEditor extends HTMLElement {
         .exclude-count {
           font-size: 0.85em;
           color: var(--secondary-text-color);
+        }
+
+        .exclude-summary-right {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .exclude-chevron {
+          color: var(--secondary-text-color);
+          transition: transform 0.2s ease;
+        }
+
+        .exclude-details[open] .exclude-chevron {
+          transform: rotate(180deg);
         }
 
         .exclude-body {
@@ -1811,7 +1823,10 @@ class DeviceMonitorCardEditor extends HTMLElement {
           <details class="exclude-details" ${this._excludeOpen ? 'open' : ''}>
             <summary>
               <span>${l('exclude')}</span>
-              <span class="exclude-count">${excludeRuleCount}</span>
+              <span class="exclude-summary-right">
+                <span class="exclude-count">${excludeRuleCount}</span>
+                <ha-icon class="exclude-chevron" icon="mdi:chevron-down"></ha-icon>
+              </span>
             </summary>
             <div class="exclude-body">
               <div class="exclude-description">${l('exclude_description')}</div>
@@ -2701,10 +2716,7 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
 
         .exclude-details {
           width: 100%;
-          border: 1px solid var(--divider-color);
-          border-radius: 8px;
-          padding: 8px 12px;
-          background: var(--card-background-color);
+          padding: 8px 0;
         }
 
         .exclude-details summary {
@@ -2723,6 +2735,21 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
         .exclude-count {
           font-size: 0.85em;
           color: var(--secondary-text-color);
+        }
+
+        .exclude-summary-right {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .exclude-chevron {
+          color: var(--secondary-text-color);
+          transition: transform 0.2s ease;
+        }
+
+        .exclude-details[open] .exclude-chevron {
+          transform: rotate(180deg);
         }
 
         .exclude-body {
@@ -2863,7 +2890,10 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
           <details class="exclude-details" ${this._excludeOpen ? 'open' : ''}>
             <summary>
               <span>${l('exclude')}</span>
-              <span class="exclude-count">${excludeRuleCount}</span>
+              <span class="exclude-summary-right">
+                <span class="exclude-count">${excludeRuleCount}</span>
+                <ha-icon class="exclude-chevron" icon="mdi:chevron-down"></ha-icon>
+              </span>
             </summary>
             <div class="exclude-body">
               <div class="exclude-description">${l('exclude_description')}</div>
