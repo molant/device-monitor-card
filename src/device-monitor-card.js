@@ -207,21 +207,22 @@ const normalizeExcludeConfig = (exclude) => {
   return { operator, rules };
 };
 
-const getDeviceIntegrationDomains = (hass, deviceId, entityId) => {
+const getDeviceIntegrationDomains = (hass, deviceId, entityId, options = {}) => {
   const domains = new Set();
   const device = deviceId ? hass?.devices?.[deviceId] : null;
   const identifiers = device?.identifiers || [];
+  const includeEntityDomain = options.includeEntityDomain !== false;
 
   identifiers.forEach((entry) => {
     if (Array.isArray(entry) && entry.length > 0 && entry[0]) {
-      domains.add(entry[0]);
+      domains.add(String(entry[0]).toLowerCase());
     }
   });
 
-  if (domains.size === 0 && entityId) {
+  if (domains.size === 0 && includeEntityDomain && entityId) {
     const domain = entityId.split('.')[0];
     if (domain) {
-      domains.add(domain);
+      domains.add(domain.toLowerCase());
     }
   }
 
@@ -270,31 +271,54 @@ const shouldExcludeDevice = (device, excludeConfig) => {
     : rules.some(matchesRule);
 };
 
-const buildIntegrationItems = (hass) => {
-  const components = hass?.config?.components || [];
-  return [...components]
+const buildExcludeItems = (hass, config) => {
+  if (!hass) {
+    return { integrationItems: [], deviceItems: [], labelItems: [] };
+  }
+
+  const configForItems = { ...config, exclude: undefined };
+  const { allDevices } = collectDevices(hass, configForItems, { debug: false, debugTag: 'Exclude Options' });
+  const integrationSet = new Set();
+  const labelSet = new Set();
+  const deviceItems = [];
+
+  allDevices.forEach((device) => {
+    device.integrationDomains?.forEach((domain) => {
+      if (!domain || domain.includes('.')) {
+        return;
+      }
+      integrationSet.add(domain);
+    });
+
+    device.labelIds?.forEach((labelId) => {
+      if (labelId) {
+        labelSet.add(labelId);
+      }
+    });
+
+    if (!device.isGroupEntity && device.deviceId) {
+      deviceItems.push({
+        value: device.deviceId,
+        label: device.deviceName || device.deviceId
+      });
+    }
+  });
+
+  const integrationItems = [...integrationSet]
     .sort((a, b) => a.localeCompare(b))
     .map((domain) => ({ value: domain, label: domain }));
-};
 
-const buildDeviceItems = (hass) => {
-  const devices = hass?.devices || {};
-  return Object.entries(devices)
-    .map(([deviceId, device]) => ({
-      value: deviceId,
-      label: device?.name_by_user || device?.name || deviceId
-    }))
-    .sort((a, b) => a.label.localeCompare(b.label));
-};
-
-const buildLabelItems = (hass) => {
   const labels = hass?.labels || {};
-  return Object.entries(labels)
-    .map(([labelId, label]) => ({
+  const labelItems = [...labelSet]
+    .map((labelId) => ({
       value: labelId,
-      label: label?.name || labelId
+      label: labels[labelId]?.name || labelId
     }))
     .sort((a, b) => a.label.localeCompare(b.label));
+
+  deviceItems.sort((a, b) => a.label.localeCompare(b.label));
+
+  return { integrationItems, deviceItems, labelItems };
 };
 
 const collectDevices = (hass, config, options = {}) => {
@@ -380,7 +404,7 @@ const collectDevices = (hass, config, options = {}) => {
 
     const entityName = attributes.friendly_name || entityId;
     const isUnavailable = entity?.state === 'unavailable';
-    const integrationDomains = getDeviceIntegrationDomains(hass, deviceId, entityId);
+    const integrationDomains = getDeviceIntegrationDomains(hass, deviceId, entityId, { includeEntityDomain: false });
     const labelIds = getDeviceLabelIds(hass, deviceId, entityId);
     const stateInfo = {
       ...strategy.evaluateState({ ...entity, entity_id: entityId }, config, hass),
@@ -1764,7 +1788,7 @@ class DeviceMonitorCardEditor extends HTMLElement {
         </div>
 
         <div class="option">
-          <details class="exclude-details">
+          <details class="exclude-details" ${this._excludeOpen ? 'open' : ''}>
             <summary>
               <span>${l('exclude')}</span>
               <span class="exclude-count">${excludeRuleCount}</span>
@@ -1996,6 +2020,8 @@ class DeviceMonitorCardEditor extends HTMLElement {
     }, false);
 
     const updateExcludeConfig = (configUpdater, rerender = false) => {
+      const excludeDetails = this.querySelector('.exclude-details');
+      this._excludeOpen = excludeDetails ? excludeDetails.open : this._excludeOpen;
       const newConfig = { ...this._config };
       const exclude = normalizeExcludeConfig(newConfig.exclude);
       configUpdater(exclude);
@@ -2026,9 +2052,15 @@ class DeviceMonitorCardEditor extends HTMLElement {
       };
     }
 
-    const integrationItems = buildIntegrationItems(this._hass);
-    const deviceItems = buildDeviceItems(this._hass);
-    const labelItems = buildLabelItems(this._hass);
+    const { integrationItems, deviceItems, labelItems } = buildExcludeItems(this._hass, this._config);
+
+    const excludeDetails = this.querySelector('.exclude-details');
+    if (excludeDetails) {
+      this._excludeOpen = excludeDetails.open;
+      excludeDetails.addEventListener('toggle', () => {
+        this._excludeOpen = excludeDetails.open;
+      });
+    }
 
     this.querySelectorAll('.exclude-rule').forEach((ruleRow) => {
       const index = Number(ruleRow.getAttribute('data-index'));
@@ -2779,7 +2811,7 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
         </div>
 
         <div class="option">
-          <details class="exclude-details">
+          <details class="exclude-details" ${this._excludeOpen ? 'open' : ''}>
             <summary>
               <span>${l('exclude')}</span>
               <span class="exclude-count">${excludeRuleCount}</span>
@@ -3051,6 +3083,8 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
       }
 
       const updateExcludeConfig = (configUpdater, rerender = false) => {
+        const excludeDetails = this.querySelector('.exclude-details');
+        this._excludeOpen = excludeDetails ? excludeDetails.open : this._excludeOpen;
         const newConfig = {
           ...this._config,
           tap_action: this._config.tap_action ? { ...this._config.tap_action } : { action: 'none' }
@@ -3084,9 +3118,15 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
         };
       }
 
-      const integrationItems = buildIntegrationItems(this._hass);
-      const deviceItems = buildDeviceItems(this._hass);
-      const labelItems = buildLabelItems(this._hass);
+      const { integrationItems, deviceItems, labelItems } = buildExcludeItems(this._hass, this._config);
+
+      const excludeDetails = this.querySelector('.exclude-details');
+      if (excludeDetails) {
+        this._excludeOpen = excludeDetails.open;
+        excludeDetails.addEventListener('toggle', () => {
+          this._excludeOpen = excludeDetails.open;
+        });
+      }
 
       this.querySelectorAll('.exclude-rule').forEach((ruleRow) => {
         const index = Number(ruleRow.getAttribute('data-index'));
