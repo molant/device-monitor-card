@@ -193,6 +193,110 @@ const registryHelpers = {
   }
 };
 
+const EXCLUDE_RULE_TYPES = ['integration', 'device', 'label'];
+
+const normalizeExcludeConfig = (exclude) => {
+  const operator = exclude?.operator === 'and' ? 'and' : 'or';
+  const rules = Array.isArray(exclude?.rules)
+    ? exclude.rules.map((rule) => ({
+      type: EXCLUDE_RULE_TYPES.includes(rule?.type) ? rule.type : 'integration',
+      value: typeof rule?.value === 'string' ? rule.value : ''
+    }))
+    : [];
+
+  return { operator, rules };
+};
+
+const getDeviceIntegrationDomains = (hass, deviceId, entityId) => {
+  const domains = new Set();
+  const device = deviceId ? hass?.devices?.[deviceId] : null;
+  const identifiers = device?.identifiers || [];
+
+  identifiers.forEach((entry) => {
+    if (Array.isArray(entry) && entry.length > 0 && entry[0]) {
+      domains.add(entry[0]);
+    }
+  });
+
+  if (domains.size === 0 && entityId) {
+    const domain = entityId.split('.')[0];
+    if (domain) {
+      domains.add(domain);
+    }
+  }
+
+  return domains;
+};
+
+const getDeviceLabelIds = (hass, deviceId, entityId) => {
+  const deviceLabels = deviceId ? hass?.devices?.[deviceId]?.labels : null;
+  if (Array.isArray(deviceLabels) && deviceLabels.length > 0) {
+    return new Set(deviceLabels);
+  }
+
+  const entityLabels = entityId ? hass?.entities?.[entityId]?.labels : null;
+  if (Array.isArray(entityLabels) && entityLabels.length > 0) {
+    return new Set(entityLabels);
+  }
+
+  return new Set();
+};
+
+const shouldExcludeDevice = (device, excludeConfig) => {
+  if (!excludeConfig?.rules?.length) {
+    return false;
+  }
+
+  const rules = excludeConfig.rules.filter((rule) => rule?.value);
+  if (!rules.length) {
+    return false;
+  }
+
+  const matchesRule = (rule) => {
+    switch (rule.type) {
+      case 'integration':
+        return device.integrationDomains?.has(rule.value);
+      case 'device':
+        return !device.isGroupEntity && device.deviceId === rule.value;
+      case 'label':
+        return device.labelIds?.has(rule.value);
+      default:
+        return false;
+    }
+  };
+
+  return excludeConfig.operator === 'and'
+    ? rules.every(matchesRule)
+    : rules.some(matchesRule);
+};
+
+const buildIntegrationItems = (hass) => {
+  const components = hass?.config?.components || [];
+  return [...components]
+    .sort((a, b) => a.localeCompare(b))
+    .map((domain) => ({ value: domain, label: domain }));
+};
+
+const buildDeviceItems = (hass) => {
+  const devices = hass?.devices || {};
+  return Object.entries(devices)
+    .map(([deviceId, device]) => ({
+      value: deviceId,
+      label: device?.name_by_user || device?.name || deviceId
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+};
+
+const buildLabelItems = (hass) => {
+  const labels = hass?.labels || {};
+  return Object.entries(labels)
+    .map(([labelId, label]) => ({
+      value: labelId,
+      label: label?.name || labelId
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+};
+
 const collectDevices = (hass, config, options = {}) => {
   if (!hass) {
     return { alertDevices: [], normalDevices: [], unavailableDevices: [], totalDevices: 0, allDevices: [] };
@@ -207,6 +311,7 @@ const collectDevices = (hass, config, options = {}) => {
   const includeArea = options.includeArea || false;
   const debug = options.debug || false;
   const debugTag = options.debugTag || 'Device Monitor';
+  const excludeConfig = normalizeExcludeConfig(config.exclude);
   const entities = hass.states || {};
   const devices = {};
   const batteryLowBinarySensors = new Set();
@@ -247,6 +352,7 @@ const collectDevices = (hass, config, options = {}) => {
     let deviceName;
     let areaId = null;
     let areaName = null;
+    let isGroupEntity = false;
 
     if (deviceId) {
       deviceName = registryHelpers.getDeviceName(hass, deviceId);
@@ -258,6 +364,7 @@ const collectDevices = (hass, config, options = {}) => {
         areaName = areaId ? registryHelpers.getAreaName(hass, areaId) : null;
       }
     } else if (registryHelpers.isGroupEntity(entityId)) {
+      isGroupEntity = true;
       deviceId = entityId;
       deviceName = attributes.friendly_name || entityId;
       if (includeArea) {
@@ -273,6 +380,8 @@ const collectDevices = (hass, config, options = {}) => {
 
     const entityName = attributes.friendly_name || entityId;
     const isUnavailable = entity?.state === 'unavailable';
+    const integrationDomains = getDeviceIntegrationDomains(hass, deviceId, entityId);
+    const labelIds = getDeviceLabelIds(hass, deviceId, entityId);
     const stateInfo = {
       ...strategy.evaluateState({ ...entity, entity_id: entityId }, config, hass),
       isUnavailable
@@ -289,6 +398,9 @@ const collectDevices = (hass, config, options = {}) => {
         deviceName,
         entityName,
         entityId,
+        isGroupEntity,
+        integrationDomains,
+        labelIds,
         stateInfo,
         lastChanged: entity?.last_changed,
         attributes
@@ -310,15 +422,20 @@ const collectDevices = (hass, config, options = {}) => {
   });
 
   const allDevices = Object.values(devices);
-  const alertDevices = allDevices.filter(d => d.stateInfo.isAlert);
-  const normalDevices = allDevices.filter(d => !d.stateInfo.isAlert);
-  const unavailableDevices = allDevices.filter(d => d.stateInfo.isUnavailable);
+  const filteredDevices = excludeConfig.rules.length
+    ? allDevices.filter((device) => !shouldExcludeDevice(device, excludeConfig))
+    : allDevices;
+  const alertDevices = filteredDevices.filter(d => d.stateInfo.isAlert);
+  const normalDevices = filteredDevices.filter(d => !d.stateInfo.isAlert);
+  const unavailableDevices = filteredDevices.filter(d => d.stateInfo.isUnavailable);
 
   if (debug) {
+    const excludedCount = allDevices.length - filteredDevices.length;
     console.log(`[Device Monitor ${debugTag}] Summary for ${entityType}:`, {
-      total: allDevices.length,
+      total: filteredDevices.length,
       alert: alertDevices.length,
-      normal: normalDevices.length
+      normal: normalDevices.length,
+      excluded: excludedCount
     });
   }
 
@@ -326,8 +443,8 @@ const collectDevices = (hass, config, options = {}) => {
     alertDevices,
     normalDevices,
     unavailableDevices,
-    allDevices,
-    totalDevices: allDevices.length
+    allDevices: filteredDevices,
+    totalDevices: filteredDevices.length
   };
 };
 
@@ -1455,6 +1572,9 @@ class DeviceMonitorCardEditor extends HTMLElement {
     const entityType = this._config.entity_type || 'battery';
     const showBatteryThreshold = entityType === 'battery';
     const showToggleOption = entityType === 'light';
+    const excludeConfig = normalizeExcludeConfig(this._config.exclude);
+    const excludeRules = excludeConfig.rules || [];
+    const excludeRuleCount = excludeRules.length;
 
     this.innerHTML = `
       <style>
@@ -1504,6 +1624,92 @@ class DeviceMonitorCardEditor extends HTMLElement {
 
         .option.hidden {
           display: none;
+        }
+
+        .exclude-details {
+          width: 100%;
+          border: 1px solid var(--divider-color);
+          border-radius: 8px;
+          padding: 8px 12px;
+          background: var(--card-background-color);
+        }
+
+        .exclude-details summary {
+          cursor: pointer;
+          list-style: none;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          font-weight: 600;
+        }
+
+        .exclude-details summary::-webkit-details-marker {
+          display: none;
+        }
+
+        .exclude-count {
+          font-size: 0.85em;
+          color: var(--secondary-text-color);
+        }
+
+        .exclude-body {
+          margin-top: 12px;
+          display: grid;
+          gap: 12px;
+        }
+
+        .exclude-description {
+          color: var(--secondary-text-color);
+          font-size: 0.9em;
+        }
+
+        .exclude-operator-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+        }
+
+        .exclude-operator-row label {
+          font-weight: 500;
+        }
+
+        .exclude-operator-row select {
+          width: 180px;
+        }
+
+        .exclude-rule {
+          display: grid;
+          grid-template-columns: 150px 1fr auto;
+          gap: 8px;
+          align-items: center;
+        }
+
+        .exclude-rule select,
+        .exclude-rule ha-combo-box {
+          width: 100%;
+        }
+
+        .exclude-add {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 12px;
+          border: 1px solid var(--divider-color);
+          border-radius: 6px;
+          background: var(--card-background-color);
+          color: var(--primary-text-color);
+          cursor: pointer;
+        }
+
+        .exclude-add:hover {
+          border-color: var(--primary-color);
+        }
+
+        @media (max-width: 600px) {
+          .exclude-rule {
+            grid-template-columns: 1fr;
+          }
         }
       </style>
 
@@ -1555,6 +1761,47 @@ class DeviceMonitorCardEditor extends HTMLElement {
             type="checkbox"
             ${this._config.show_unavailable ? 'checked' : ''}
           />
+        </div>
+
+        <div class="option">
+          <details class="exclude-details">
+            <summary>
+              <span>${l('exclude')}</span>
+              <span class="exclude-count">${excludeRuleCount}</span>
+            </summary>
+            <div class="exclude-body">
+              <div class="exclude-description">${l('exclude_description')}</div>
+              <div class="exclude-operator-row">
+                <label for="exclude_operator">${l('exclude_operator')}</label>
+                <select id="exclude_operator">
+                  <option value="or" ${excludeConfig.operator === 'or' ? 'selected' : ''}>${l('exclude_operator_any')}</option>
+                  <option value="and" ${excludeConfig.operator === 'and' ? 'selected' : ''}>${l('exclude_operator_all')}</option>
+                </select>
+              </div>
+              <div class="exclude-rules">
+                ${excludeRules.map((rule, index) => `
+                  <div class="exclude-rule" data-index="${index}">
+                    <select class="exclude-rule-type">
+                      <option value="integration" ${rule.type === 'integration' ? 'selected' : ''}>${l('exclude_rule_integration')}</option>
+                      <option value="device" ${rule.type === 'device' ? 'selected' : ''}>${l('exclude_rule_device')}</option>
+                      <option value="label" ${rule.type === 'label' ? 'selected' : ''}>${l('exclude_rule_label')}</option>
+                    </select>
+                    <ha-combo-box
+                      class="exclude-rule-value"
+                      item-label-path="label"
+                      item-value-path="value"
+                      allow-custom-value
+                    ></ha-combo-box>
+                    <ha-icon-button class="exclude-remove" icon="mdi:close"></ha-icon-button>
+                  </div>
+                `).join('')}
+              </div>
+              <button class="exclude-add" id="exclude_add" type="button">
+                <ha-icon icon="mdi:plus"></ha-icon>
+                ${l('exclude_add_filter')}
+              </button>
+            </div>
+          </details>
         </div>
 
         <div class="option ${showBatteryThreshold ? '' : 'hidden'}" id="battery_threshold_option">
@@ -1747,6 +1994,85 @@ class DeviceMonitorCardEditor extends HTMLElement {
     debugInput.onchange = updateConfig((config, target) => {
       config.debug = target.checked;
     }, false);
+
+    const updateExcludeConfig = (configUpdater, rerender = false) => {
+      const newConfig = { ...this._config };
+      const exclude = normalizeExcludeConfig(newConfig.exclude);
+      configUpdater(exclude);
+      newConfig.exclude = exclude;
+      this.configChanged(newConfig, true);
+
+      if (rerender) {
+        this._rendered = false;
+        this.setConfig(newConfig);
+      }
+    };
+
+    const excludeOperatorInput = this.querySelector('#exclude_operator');
+    if (excludeOperatorInput) {
+      excludeOperatorInput.onchange = updateConfig((config, target) => {
+        const exclude = normalizeExcludeConfig(config.exclude);
+        exclude.operator = target.value;
+        config.exclude = exclude;
+      }, false);
+    }
+
+    const excludeAddButton = this.querySelector('#exclude_add');
+    if (excludeAddButton) {
+      excludeAddButton.onclick = () => {
+        updateExcludeConfig((exclude) => {
+          exclude.rules.push({ type: 'integration', value: '' });
+        }, true);
+      };
+    }
+
+    const integrationItems = buildIntegrationItems(this._hass);
+    const deviceItems = buildDeviceItems(this._hass);
+    const labelItems = buildLabelItems(this._hass);
+
+    this.querySelectorAll('.exclude-rule').forEach((ruleRow) => {
+      const index = Number(ruleRow.getAttribute('data-index'));
+      const rule = excludeRules[index] || { type: 'integration', value: '' };
+      const typeSelect = ruleRow.querySelector('.exclude-rule-type');
+      const valueCombo = ruleRow.querySelector('.exclude-rule-value');
+      const removeButton = ruleRow.querySelector('.exclude-remove');
+
+      const items = rule.type === 'device'
+        ? deviceItems
+        : rule.type === 'label'
+          ? labelItems
+          : integrationItems;
+
+      if (valueCombo) {
+        valueCombo.items = items;
+        valueCombo.value = rule.value || '';
+        valueCombo.clearable = true;
+        valueCombo.allowCustomValue = true;
+        valueCombo.addEventListener('value-changed', (ev) => {
+          const value = ev.detail?.value ?? '';
+          updateExcludeConfig((exclude) => {
+            exclude.rules[index] = { ...exclude.rules[index], value };
+          }, false);
+        });
+      }
+
+      if (typeSelect) {
+        typeSelect.onchange = (ev) => {
+          const nextType = ev.target.value;
+          updateExcludeConfig((exclude) => {
+            exclude.rules[index] = { type: nextType, value: '' };
+          }, true);
+        };
+      }
+
+      if (removeButton) {
+        removeButton.onclick = () => {
+          updateExcludeConfig((exclude) => {
+            exclude.rules.splice(index, 1);
+          }, true);
+        };
+      }
+    });
   }
 }
 
@@ -2258,9 +2584,12 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
       const showBatteryThreshold = entityType === 'battery';
       const tapAction = this._config.tap_action || { action: 'none' };
       const tapActionType = tapAction.action || 'none';
+      const excludeConfig = normalizeExcludeConfig(this._config.exclude);
+      const excludeRules = excludeConfig.rules || [];
+      const excludeRuleCount = excludeRules.length;
 
       this.innerHTML = `
-      <style>
+        <style>
         .option {
           padding: 12px 0;
           display: flex;
@@ -2307,6 +2636,92 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
 
         .option.hidden {
           display: none;
+        }
+
+        .exclude-details {
+          width: 100%;
+          border: 1px solid var(--divider-color);
+          border-radius: 8px;
+          padding: 8px 12px;
+          background: var(--card-background-color);
+        }
+
+        .exclude-details summary {
+          cursor: pointer;
+          list-style: none;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          font-weight: 600;
+        }
+
+        .exclude-details summary::-webkit-details-marker {
+          display: none;
+        }
+
+        .exclude-count {
+          font-size: 0.85em;
+          color: var(--secondary-text-color);
+        }
+
+        .exclude-body {
+          margin-top: 12px;
+          display: grid;
+          gap: 12px;
+        }
+
+        .exclude-description {
+          color: var(--secondary-text-color);
+          font-size: 0.9em;
+        }
+
+        .exclude-operator-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+        }
+
+        .exclude-operator-row label {
+          font-weight: 500;
+        }
+
+        .exclude-operator-row select {
+          width: 180px;
+        }
+
+        .exclude-rule {
+          display: grid;
+          grid-template-columns: 150px 1fr auto;
+          gap: 8px;
+          align-items: center;
+        }
+
+        .exclude-rule select,
+        .exclude-rule ha-combo-box {
+          width: 100%;
+        }
+
+        .exclude-add {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 12px;
+          border: 1px solid var(--divider-color);
+          border-radius: 6px;
+          background: var(--card-background-color);
+          color: var(--primary-text-color);
+          cursor: pointer;
+        }
+
+        .exclude-add:hover {
+          border-color: var(--primary-color);
+        }
+
+        @media (max-width: 600px) {
+          .exclude-rule {
+            grid-template-columns: 1fr;
+          }
         }
       </style>
 
@@ -2361,6 +2776,47 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
             type="checkbox"
             ${this._config.show_unavailable ? 'checked' : ''}
           />
+        </div>
+
+        <div class="option">
+          <details class="exclude-details">
+            <summary>
+              <span>${l('exclude')}</span>
+              <span class="exclude-count">${excludeRuleCount}</span>
+            </summary>
+            <div class="exclude-body">
+              <div class="exclude-description">${l('exclude_description')}</div>
+              <div class="exclude-operator-row">
+                <label for="exclude_operator">${l('exclude_operator')}</label>
+                <select id="exclude_operator">
+                  <option value="or" ${excludeConfig.operator === 'or' ? 'selected' : ''}>${l('exclude_operator_any')}</option>
+                  <option value="and" ${excludeConfig.operator === 'and' ? 'selected' : ''}>${l('exclude_operator_all')}</option>
+                </select>
+              </div>
+              <div class="exclude-rules">
+                ${excludeRules.map((rule, index) => `
+                  <div class="exclude-rule" data-index="${index}">
+                    <select class="exclude-rule-type">
+                      <option value="integration" ${rule.type === 'integration' ? 'selected' : ''}>${l('exclude_rule_integration')}</option>
+                      <option value="device" ${rule.type === 'device' ? 'selected' : ''}>${l('exclude_rule_device')}</option>
+                      <option value="label" ${rule.type === 'label' ? 'selected' : ''}>${l('exclude_rule_label')}</option>
+                    </select>
+                    <ha-combo-box
+                      class="exclude-rule-value"
+                      item-label-path="label"
+                      item-value-path="value"
+                      allow-custom-value
+                    ></ha-combo-box>
+                    <ha-icon-button class="exclude-remove" icon="mdi:close"></ha-icon-button>
+                  </div>
+                `).join('')}
+              </div>
+              <button class="exclude-add" id="exclude_add" type="button">
+                <ha-icon icon="mdi:plus"></ha-icon>
+                ${l('exclude_add_filter')}
+              </button>
+            </div>
+          </details>
         </div>
 
         <div class="option">
@@ -2593,6 +3049,88 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
           config.debug = target.checked;
         }, false);
       }
+
+      const updateExcludeConfig = (configUpdater, rerender = false) => {
+        const newConfig = {
+          ...this._config,
+          tap_action: this._config.tap_action ? { ...this._config.tap_action } : { action: 'none' }
+        };
+        const exclude = normalizeExcludeConfig(newConfig.exclude);
+        configUpdater(exclude);
+        newConfig.exclude = exclude;
+        this.configChanged(newConfig, true);
+
+        if (rerender) {
+          this._rendered = false;
+          this.setConfig(newConfig);
+        }
+      };
+
+      const excludeOperatorInput = this.querySelector('#exclude_operator');
+      if (excludeOperatorInput) {
+        excludeOperatorInput.onchange = updateConfig((config, target) => {
+          const exclude = normalizeExcludeConfig(config.exclude);
+          exclude.operator = target.value;
+          config.exclude = exclude;
+        }, false);
+      }
+
+      const excludeAddButton = this.querySelector('#exclude_add');
+      if (excludeAddButton) {
+        excludeAddButton.onclick = () => {
+          updateExcludeConfig((exclude) => {
+            exclude.rules.push({ type: 'integration', value: '' });
+          }, true);
+        };
+      }
+
+      const integrationItems = buildIntegrationItems(this._hass);
+      const deviceItems = buildDeviceItems(this._hass);
+      const labelItems = buildLabelItems(this._hass);
+
+      this.querySelectorAll('.exclude-rule').forEach((ruleRow) => {
+        const index = Number(ruleRow.getAttribute('data-index'));
+        const rule = excludeRules[index] || { type: 'integration', value: '' };
+        const typeSelect = ruleRow.querySelector('.exclude-rule-type');
+        const valueCombo = ruleRow.querySelector('.exclude-rule-value');
+        const removeButton = ruleRow.querySelector('.exclude-remove');
+
+        const items = rule.type === 'device'
+          ? deviceItems
+          : rule.type === 'label'
+            ? labelItems
+            : integrationItems;
+
+        if (valueCombo) {
+          valueCombo.items = items;
+          valueCombo.value = rule.value || '';
+          valueCombo.clearable = true;
+          valueCombo.allowCustomValue = true;
+          valueCombo.addEventListener('value-changed', (ev) => {
+            const value = ev.detail?.value ?? '';
+            updateExcludeConfig((exclude) => {
+              exclude.rules[index] = { ...exclude.rules[index], value };
+            }, false);
+          });
+        }
+
+        if (typeSelect) {
+          typeSelect.onchange = (ev) => {
+            const nextType = ev.target.value;
+            updateExcludeConfig((exclude) => {
+              exclude.rules[index] = { type: nextType, value: '' };
+            }, true);
+          };
+        }
+
+        if (removeButton) {
+          removeButton.onclick = () => {
+            updateExcludeConfig((exclude) => {
+              exclude.rules.splice(index, 1);
+            }, true);
+          };
+        }
+      });
     } catch (error) {
       console.error('[Device Monitor Badge Editor] Render error:', error);
       this.innerHTML = `
