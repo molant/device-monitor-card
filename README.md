@@ -197,8 +197,25 @@ collapse: 10
 | `name_source` | string | `'device'` | Display name: `'device'` (device name) or `'entity'` (entity friendly name) |
 | `show_toggle` | boolean | `false` | (Light only) Show toggle switch to turn lights on/off |
 | `show_unavailable` | boolean | `false` | Include entities whose state is unavailable (shown in alert list with muted styling and no toggle) |
+| `exclude` | object | `undefined` | Exclude devices by integration, device, or label (supports `operator: 'or'|'and'` and `rules` array) |
 | `collapse` | number | `undefined` | If set, collapse to show only this many devices with expand button |
 | `debug` | boolean | `false` | Enable debug logging in browser console |
+
+### Exclusion Rules
+
+Exclude devices by integration, device, or label. Rules can be chained with `operator: 'or'` (any match) or `operator: 'and'` (all match). Use identifiers for `value` (domain, device_id, or label_id).
+
+```yaml
+type: custom:device-monitor-card
+entity_type: battery
+exclude:
+  operator: or
+  rules:
+    - type: integration
+      value: zha
+    - type: label
+      value: living_room
+```
 
 ### Default Titles
 
@@ -370,6 +387,7 @@ tap_action:
 | `entity_type` | string | `'battery'` | Type of entities to monitor: `'battery'`, `'contact'`, or `'light'` |
 | `title` | string | Auto | Badge title (auto-generates based on entity_type if not specified) |
 | `battery_threshold` | number | `20` | (Battery only) Battery percentage threshold for low battery alerts |
+| `exclude` | object | `undefined` | Exclude devices by integration, device, or label (supports `operator: 'or'|'and'` and `rules` array) |
 | `tap_action` | object | `{ action: 'none' }` | Action to perform when badge is tapped (see Tap Actions below) |
 | `debug` | boolean | `false` | Enable debug logging in browser console |
 
