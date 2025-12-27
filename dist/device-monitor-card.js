@@ -2029,6 +2029,17 @@ class DeviceMonitorCardEditor extends HTMLElement {
           width: 100%;
         }
 
+        .exclude-remove {
+          color: var(--secondary-text-color);
+          background: rgba(0, 0, 0, 0.25);
+          border-radius: 50%;
+        }
+
+        .exclude-remove:hover {
+          color: var(--primary-text-color);
+          background: rgba(0, 0, 0, 0.45);
+        }
+
         .exclude-add {
           display: inline-flex;
           align-items: center;
@@ -3047,6 +3058,17 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
         .exclude-rule select,
         .exclude-rule ha-combo-box {
           width: 100%;
+        }
+
+        .exclude-remove {
+          color: var(--secondary-text-color);
+          background: rgba(0, 0, 0, 0.25);
+          border-radius: 50%;
+        }
+
+        .exclude-remove:hover {
+          color: var(--primary-text-color);
+          background: rgba(0, 0, 0, 0.45);
         }
 
         .exclude-add {

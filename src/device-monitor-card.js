@@ -1715,14 +1715,18 @@ class DeviceMonitorCardEditor extends HTMLElement {
         }
 
         .exclude-remove {
-          color: var(--secondary-text-color);
-          background: rgba(0, 0, 0, 0.25);
+          --mdc-icon-size: 18px;
+          --mdc-icon-button-size: 32px;
+          color: var(--error-color, #d32f2f);
+          background: rgba(211, 47, 47, 0.12);
+          border: 1px solid rgba(211, 47, 47, 0.35);
           border-radius: 50%;
         }
 
         .exclude-remove:hover {
-          color: var(--primary-text-color);
-          background: rgba(0, 0, 0, 0.45);
+          color: var(--error-color, #d32f2f);
+          background: rgba(211, 47, 47, 0.2);
+          border-color: rgba(211, 47, 47, 0.6);
         }
 
         .exclude-add {
@@ -2746,14 +2750,18 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
         }
 
         .exclude-remove {
-          color: var(--secondary-text-color);
-          background: rgba(0, 0, 0, 0.25);
+          --mdc-icon-size: 18px;
+          --mdc-icon-button-size: 32px;
+          color: var(--error-color, #d32f2f);
+          background: rgba(211, 47, 47, 0.12);
+          border: 1px solid rgba(211, 47, 47, 0.35);
           border-radius: 50%;
         }
 
         .exclude-remove:hover {
-          color: var(--primary-text-color);
-          background: rgba(0, 0, 0, 0.45);
+          color: var(--error-color, #d32f2f);
+          background: rgba(211, 47, 47, 0.2);
+          border-color: rgba(211, 47, 47, 0.6);
         }
 
         .exclude-add {
