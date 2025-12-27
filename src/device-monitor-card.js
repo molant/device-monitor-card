@@ -1715,8 +1715,10 @@ class DeviceMonitorCardEditor extends HTMLElement {
         }
 
         .exclude-remove {
-          --mdc-icon-size: 22px;
-          --mdc-icon-button-size: 32px;
+          background: transparent;
+          border: 0;
+          padding: 4px;
+          cursor: pointer;
           color: var(--secondary-text-color);
           opacity: 0.9;
         }
@@ -1724,6 +1726,12 @@ class DeviceMonitorCardEditor extends HTMLElement {
         .exclude-remove:hover {
           color: var(--primary-text-color);
           opacity: 1;
+        }
+
+        .exclude-remove ha-icon {
+          width: 22px;
+          height: 22px;
+          display: block;
         }
 
         .exclude-add {
@@ -1817,23 +1825,27 @@ class DeviceMonitorCardEditor extends HTMLElement {
               <div class="exclude-rules">
                 ${excludeRules.map((rule, index) => `
                   <div class="exclude-rule" data-index="${index}">
-                    <select class="exclude-rule-type">
+                    <select class="exclude-rule-type" id="exclude_rule_type_${index}" name="exclude_rule_type_${index}">
                       <option value="integration" ${rule.type === 'integration' ? 'selected' : ''}>${l('exclude_rule_integration')}</option>
                       <option value="device" ${rule.type === 'device' ? 'selected' : ''}>${l('exclude_rule_device')}</option>
                       <option value="label" ${rule.type === 'label' ? 'selected' : ''}>${l('exclude_rule_label')}</option>
                     </select>
                     <ha-combo-box
                       class="exclude-rule-value"
+                      id="exclude_rule_value_${index}"
+                      name="exclude_rule_value_${index}"
                       item-label-path="label"
                       item-value-path="value"
                       allow-custom-value
                     ></ha-combo-box>
-                    <ha-icon-button
+                    <button
                       class="exclude-remove"
-                      icon="mdi:close"
                       title="${l('exclude_remove_filter')}"
                       aria-label="${l('exclude_remove_filter')}"
-                    ></ha-icon-button>
+                      type="button"
+                    >
+                      <ha-icon icon="mdi:close"></ha-icon>
+                    </button>
                   </div>
                 `).join('')}
               </div>
@@ -2453,19 +2465,19 @@ class DeviceMonitorBadge extends HTMLElement {
             holdTriggered = true;
             this._handleAction(holdAction);
           }, 500);
-        });
+        }, { passive: true });
 
         badgeElement.addEventListener('pointerup', () => {
           clearHold();
-        });
+        }, { passive: true });
 
         badgeElement.addEventListener('pointerleave', () => {
           clearHold();
-        });
+        }, { passive: true });
 
         badgeElement.addEventListener('pointercancel', () => {
           clearHold();
-        });
+        }, { passive: true });
       }
 
       if (hasTapAction) {
@@ -2752,8 +2764,10 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
         }
 
         .exclude-remove {
-          --mdc-icon-size: 22px;
-          --mdc-icon-button-size: 32px;
+          background: transparent;
+          border: 0;
+          padding: 4px;
+          cursor: pointer;
           color: var(--secondary-text-color);
           opacity: 0.9;
         }
@@ -2761,6 +2775,12 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
         .exclude-remove:hover {
           color: var(--primary-text-color);
           opacity: 1;
+        }
+
+        .exclude-remove ha-icon {
+          width: 22px;
+          height: 22px;
+          display: block;
         }
 
         .exclude-add {
@@ -2857,23 +2877,27 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
               <div class="exclude-rules">
                 ${excludeRules.map((rule, index) => `
                   <div class="exclude-rule" data-index="${index}">
-                    <select class="exclude-rule-type">
+                    <select class="exclude-rule-type" id="exclude_rule_type_${index}" name="exclude_rule_type_${index}">
                       <option value="integration" ${rule.type === 'integration' ? 'selected' : ''}>${l('exclude_rule_integration')}</option>
                       <option value="device" ${rule.type === 'device' ? 'selected' : ''}>${l('exclude_rule_device')}</option>
                       <option value="label" ${rule.type === 'label' ? 'selected' : ''}>${l('exclude_rule_label')}</option>
                     </select>
                     <ha-combo-box
                       class="exclude-rule-value"
+                      id="exclude_rule_value_${index}"
+                      name="exclude_rule_value_${index}"
                       item-label-path="label"
                       item-value-path="value"
                       allow-custom-value
                     ></ha-combo-box>
-                    <ha-icon-button
+                    <button
                       class="exclude-remove"
-                      icon="mdi:close"
                       title="${l('exclude_remove_filter')}"
                       aria-label="${l('exclude_remove_filter')}"
-                    ></ha-icon-button>
+                      type="button"
+                    >
+                      <ha-icon icon="mdi:close"></ha-icon>
+                    </button>
                   </div>
                 `).join('')}
               </div>
