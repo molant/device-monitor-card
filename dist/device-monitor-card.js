@@ -672,6 +672,17 @@ const collectDevices = (hass, config, options = {}) => {
     const attributes = entity?.attributes || {};
 
     if (!strategy.detect(entityId, attributes)) {
+      // Log battery entities skipped due to invalid unit (e.g., voltage)
+      if (debug && entityType === 'battery' && !entityId.startsWith('binary_sensor.')) {
+        const unit = attributes.unit_of_measurement;
+        if (unit && unit !== '%' && (attributes.device_class === 'battery' || entityId.includes('battery'))) {
+          console.log(`[Device Monitor ${debugTag}] Skipping battery entity with invalid unit:`, {
+            entityId,
+            unit_of_measurement: unit,
+            reason: 'Only percentage (%) or no unit is accepted'
+          });
+        }
+      }
       return;
     }
 
@@ -805,9 +816,21 @@ const ENTITY_TYPES = {
 
       if (isExcludedEntity) return false;
 
+      // Binary sensors don't need unit validation (they return on/off)
+      if (entityId.startsWith('binary_sensor.')) {
+        return attributes.device_class === 'battery' || entityId.includes('battery');
+      }
+
+      // For sensors, check unit of measurement - only accept percentage or no unit
+      // This filters out voltage-based battery sensors (V, mV) which aren't meaningful
+      const unit = attributes.unit_of_measurement;
+      const hasValidUnit = !unit || unit === '%';
+
+      if (!hasValidUnit) return false;
+
       return attributes.device_class === 'battery' ||
         (entityId.includes('battery') &&
-          (entityId.startsWith('sensor.') || entityId.startsWith('binary_sensor.')) &&
+          entityId.startsWith('sensor.') &&
           attributes.device_class !== 'power' &&
           attributes.device_class !== 'energy');
     },
