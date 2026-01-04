@@ -9,6 +9,7 @@
     "entity_type_contact": "Kontaktsensoren",
     "entity_type_lock": "Schlösser",
     "entity_type_light": "Lichter",
+    "entity_type_switch": "Schalter",
     "filter": "Filter",
     "filter_description": "Welche Geräte angezeigt werden",
     "filter_alert": "Nur Warnungen",
@@ -81,12 +82,14 @@
     "battery": "Alle Batterien sind OK!",
     "contact": "Alle Türen und Fenster sind geschlossen!",
     "lock": "Alle Schlösser sind verriegelt!",
-    "light": "Alle Lichter sind aus!"
+    "light": "Alle Lichter sind aus!",
+    "switch": "Alle Schalter sind aus!"
   },
   "default_titles": {
     "battery": "Batterie schwach",
     "contact": "Türen & Fenster offen",
     "lock": "Entriegelte Schlösser",
-    "light": "Lichter an"
+    "light": "Lichter an",
+    "switch": "Schalter an"
   }
 }

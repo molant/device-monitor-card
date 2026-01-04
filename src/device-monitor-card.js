@@ -115,7 +115,8 @@ const DEFAULT_TITLE_FALLBACKS = {
   battery: 'Low Battery',
   contact: 'Open Doors & Windows',
   lock: 'Unlocked Locks',
-  light: 'Lights On'
+  light: 'Lights On',
+  switch: 'Switches On'
 };
 
 const getDefaultTitle = (entityType) => {
@@ -170,7 +171,7 @@ const registryHelpers = {
   },
 
   isGroupEntity(entityId) {
-    return entityId.startsWith('light.') || entityId.startsWith('contact.') || entityId.startsWith('sensor.');
+    return entityId.startsWith('light.') || entityId.startsWith('switch.') || entityId.startsWith('contact.') || entityId.startsWith('sensor.');
   },
 
   getDeviceId(hass, entityId) {
@@ -735,6 +736,52 @@ const ENTITY_TYPES = {
       if (alertCount === 0) return 'var(--disabled-text-color, #9e9e9e)';
       return 'var(--label-badge-yellow, #f4b400)';
     }
+  },
+
+  switch: {
+    name: 'Switch',
+
+    // Detect if an entity is a switch
+    detect: (entityId, attributes) => {
+      return entityId.startsWith('switch.');
+    },
+
+    // Evaluate if the entity state is in alert condition
+    evaluateState: (entity, config, hass) => {
+      const isOn = entity.state === 'on';
+      const stateObj = hass?.states?.[entity.entity_id];
+      const displayValue = stateObj ? hass.formatEntityState(stateObj) : (isOn ? 'On' : 'Off');
+      return {
+        value: entity.state,
+        displayValue: displayValue,
+        isAlert: isOn,
+        numericValue: null
+      };
+    },
+
+    // Get icon for switch state
+    getIcon: (state) => {
+      return state.value === 'on' ? 'mdi:toggle-switch' : 'mdi:toggle-switch-off';
+    },
+
+    // Get color for switch state
+    getColor: (state) => {
+      if (state.isUnavailable) return 'var(--disabled-text-color, #9e9e9e)';
+      return state.isAlert ? '#ffa500' : 'var(--disabled-text-color, #9e9e9e)';
+    },
+
+    // Get empty state message
+    emptyMessage: 'All switches are off!',
+    emptyIcon: 'mdi:toggle-switch-off',
+
+    // Default title for badge
+    defaultTitle: 'Switches On',
+
+    // Get badge color based on alert count
+    getBadgeColor: (alertCount) => {
+      if (alertCount === 0) return 'var(--disabled-text-color, #9e9e9e)';
+      return 'var(--label-badge-yellow, #f4b400)';
+    }
   }
 };
 
@@ -988,16 +1035,17 @@ class DeviceMonitorCard extends HTMLElement {
   }
 
   /**
-   * Toggle light state
+   * Toggle entity state (works for lights and switches)
    */
-  _toggleLight(entityId, currentState) {
+  _toggleEntity(entityId, currentState) {
     if (!this._hass) return;
 
+    const domain = entityId.split('.')[0];
     const service = currentState === 'on' ? 'turn_off' : 'turn_on';
-    this._hass.callService('light', service, { entity_id: entityId });
+    this._hass.callService(domain, service, { entity_id: entityId });
 
     if (this._config.debug) {
-      console.log(`[Device Monitor] Toggling light ${entityId} to ${service === 'turn_on' ? 'on' : 'off'}`);
+      console.log(`[Device Monitor] Toggling ${domain} ${entityId} to ${service === 'turn_on' ? 'on' : 'off'}`);
     }
   }
 
@@ -1065,9 +1113,9 @@ class DeviceMonitorCard extends HTMLElement {
   _renderDevice(device) {
     const strategy = ENTITY_TYPES[this._config.entity_type];
     const stateInfo = { ...device.stateInfo, attributes: device.attributes, entityId: device.entityId };
-    const isLight = this._config.entity_type === 'light';
+    const isToggleable = this._config.entity_type === 'light' || this._config.entity_type === 'switch';
     const isUnavailable = stateInfo.isUnavailable;
-    const showToggle = this._config.show_toggle && isLight && !isUnavailable;
+    const showToggle = this._config.show_toggle && isToggleable && !isUnavailable;
     const isOn = device.stateInfo.value === 'on';
 
     // Use custom icon if set, otherwise use strategy icon
@@ -1464,7 +1512,7 @@ class DeviceMonitorCard extends HTMLElement {
         e.stopPropagation();
         const entityId = toggle.getAttribute('data-entity-id');
         const currentState = toggle.checked ? 'off' : 'on'; // Inverted because checkbox already changed
-        this._toggleLight(entityId, currentState);
+        this._toggleEntity(entityId, currentState);
       });
     });
 
@@ -1595,7 +1643,7 @@ class DeviceMonitorCardEditor extends HTMLElement {
     const l = (key) => localizationHelper.localize(`editor.${key}`);
     const entityType = this._config.entity_type || 'battery';
     const showBatteryThreshold = entityType === 'battery';
-    const showToggleOption = entityType === 'light';
+    const showToggleOption = entityType === 'light' || entityType === 'switch';
     const excludeConfig = normalizeExcludeConfig(this._config.exclude);
     const excludeRules = excludeConfig.rules || [];
     const excludeRuleCount = excludeRules.length;
@@ -1793,6 +1841,7 @@ class DeviceMonitorCardEditor extends HTMLElement {
             <option value="contact" ${entityType === 'contact' ? 'selected' : ''}>${l('entity_type_contact')}</option>
             <option value="lock" ${entityType === 'lock' ? 'selected' : ''}>${l('entity_type_lock')}</option>
             <option value="light" ${entityType === 'light' ? 'selected' : ''}>${l('entity_type_light')}</option>
+            <option value="switch" ${entityType === 'switch' ? 'selected' : ''}>${l('entity_type_switch')}</option>
           </select>
         </div>
 
@@ -2857,6 +2906,7 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
             <option value="contact" ${entityType === 'contact' ? 'selected' : ''}>${l('entity_type_contact')}</option>
             <option value="lock" ${entityType === 'lock' ? 'selected' : ''}>${l('entity_type_lock')}</option>
             <option value="light" ${entityType === 'light' ? 'selected' : ''}>${l('entity_type_light')}</option>
+            <option value="switch" ${entityType === 'switch' ? 'selected' : ''}>${l('entity_type_switch')}</option>
           </select>
         </div>
 

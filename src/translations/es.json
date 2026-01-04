@@ -9,6 +9,7 @@
     "entity_type_contact": "Sensores de Contacto",
     "entity_type_lock": "Cerraduras",
     "entity_type_light": "Luces",
+    "entity_type_switch": "Interruptores",
     "filter": "Filtro",
     "filter_description": "Qué dispositivos mostrar",
     "filter_alert": "Solo Alertas",
@@ -81,12 +82,14 @@
     "battery": "¡Todas las baterías están bien!",
     "contact": "¡Todas las puertas y ventanas están cerradas!",
     "lock": "¡Todas las cerraduras están cerradas!",
-    "light": "¡Todas las luces están apagadas!"
+    "light": "¡Todas las luces están apagadas!",
+    "switch": "¡Todos los interruptores están apagados!"
   },
   "default_titles": {
     "battery": "Batería Baja",
     "contact": "Puertas y Ventanas Abiertas",
     "lock": "Cerraduras Desbloqueadas",
-    "light": "Luces Encendidas"
+    "light": "Luces Encendidas",
+    "switch": "Interruptores Encendidos"
   }
 }

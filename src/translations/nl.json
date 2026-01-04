@@ -9,6 +9,7 @@
     "entity_type_contact": "Contactsleutels",
     "entity_type_lock": "Sloten",
     "entity_type_light": "Verlichting",
+    "entity_type_switch": "Schakelaars",
     "filter": "Filter",
     "filter_description": "Welke apparaten moeten worden getoond",
     "filter_alert": "Alleen Waarschuwingen",
@@ -81,12 +82,14 @@
     "battery": "Alle batterijen zijn OK!",
     "contact": "Alle deuren en ramen zijn gesloten!",
     "lock": "Alle sloten zijn vergrendeld!",
-    "light": "Alle lichten zijn uit!"
+    "light": "Alle lichten zijn uit!",
+    "switch": "Alle schakelaars zijn uit!"
   },
   "default_titles": {
     "battery": "Lage Batterij",
     "contact": "Open Deuren & Ramen",
     "lock": "Ontgrendelde Sloten",
-    "light": "Lichten Aan"
+    "light": "Lichten Aan",
+    "switch": "Schakelaars Aan"
   }
 }

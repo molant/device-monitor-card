@@ -88,7 +88,7 @@ Configuration labels and descriptions for both the card and badge editors:
 - `name_source` - Name source selector label
 - `collapse` - Collapse field label
 - `card_visibility` / `badge_visibility_description` - Visibility settings
-- `show_toggle` - Show toggle switch option (lights only)
+- `show_toggle` - Show toggle switch option (lights and switches)
 - `debug_mode` - Debug mode checkbox label
 - `tap_action` - Tap action selector (badge only)
 
@@ -98,6 +98,7 @@ Options for entity type dropdowns:
 - `entity_type_contact` - "Contact Sensors"
 - `entity_type_lock` - "Locks"
 - `entity_type_light` - "Lights"
+- `entity_type_switch` - "Switches"
 
 ### Filter Options
 Options for filter dropdowns:

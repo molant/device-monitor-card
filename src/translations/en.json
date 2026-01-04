@@ -9,6 +9,7 @@
     "entity_type_contact": "Contact Sensors",
     "entity_type_lock": "Locks",
     "entity_type_light": "Lights",
+    "entity_type_switch": "Switches",
     "filter": "Filter",
     "filter_description": "Which devices to show",
     "filter_alert": "Only Alerts",
@@ -81,12 +82,14 @@
     "battery": "All batteries are OK!",
     "contact": "All doors and windows are closed!",
     "lock": "All locks are locked!",
-    "light": "All lights are off!"
+    "light": "All lights are off!",
+    "switch": "All switches are off!"
   },
   "default_titles": {
     "battery": "Low Battery",
     "contact": "Open Doors & Windows",
     "lock": "Unlocked Locks",
-    "light": "Lights On"
+    "light": "Lights On",
+    "switch": "Switches On"
   }
 }
