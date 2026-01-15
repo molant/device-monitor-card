@@ -1,3 +1,11 @@
+### v1.5.0 (2026-01-14)
+
+**Features:**
+-  add exclusion filters
+
+**Fixes:**
+-  ignore entities with unexpected units
+
 ### v1.4.0 (2025-12-23)
 
 **Features:**
