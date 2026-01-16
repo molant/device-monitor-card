@@ -5,7 +5,12 @@
       "Bash(node -c:*)",
       "Bash(node -e:*)",
       "Bash(node --check:*)",
-      "Bash(./scripts/build.sh:*)"
+      "Bash(./scripts/build.sh:*)",
+      "WebSearch",
+      "WebFetch(domain:developers.home-assistant.io)",
+      "WebFetch(domain:github.com)",
+      "Bash(grep:*)",
+      "Bash(npm run build:*)"
     ]
   }
 }

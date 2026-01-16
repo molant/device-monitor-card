@@ -1723,7 +1723,7 @@ class DeviceMonitorCardEditor extends HTMLElement {
         }
 
         .exclude-rule select,
-        .exclude-rule ha-combo-box {
+        .exclude-rule ha-selector {
           width: 100%;
         }
 
@@ -1846,14 +1846,10 @@ class DeviceMonitorCardEditor extends HTMLElement {
                       <option value="device" ${rule.type === 'device' ? 'selected' : ''}>${l('exclude_rule_device')}</option>
                       <option value="label" ${rule.type === 'label' ? 'selected' : ''}>${l('exclude_rule_label')}</option>
                     </select>
-                    <ha-combo-box
+                    <ha-selector
                       class="exclude-rule-value"
                       id="exclude_rule_value_${index}"
-                      name="exclude_rule_value_${index}"
-                      item-label-path="label"
-                      item-value-path="value"
-                      allow-custom-value
-                    ></ha-combo-box>
+                    ></ha-selector>
                     <button
                       class="exclude-remove"
                       title="${l('exclude_remove_filter')}"
@@ -2111,21 +2107,33 @@ class DeviceMonitorCardEditor extends HTMLElement {
       const index = Number(ruleRow.getAttribute('data-index'));
       const rule = excludeRules[index] || { type: 'integration', value: '' };
       const typeSelect = ruleRow.querySelector('.exclude-rule-type');
-      const valueCombo = ruleRow.querySelector('.exclude-rule-value');
+      const valueSelector = ruleRow.querySelector('.exclude-rule-value');
       const removeButton = ruleRow.querySelector('.exclude-remove');
 
-      const items = rule.type === 'device'
-        ? deviceItems
-        : rule.type === 'label'
-          ? labelItems
-          : integrationItems;
+      // Configure ha-selector based on rule type
+      if (valueSelector) {
+        valueSelector.hass = this._hass;
+        valueSelector.value = rule.value || '';
 
-      if (valueCombo) {
-        valueCombo.items = items;
-        valueCombo.value = rule.value || '';
-        valueCombo.clearable = true;
-        valueCombo.allowCustomValue = true;
-        valueCombo.addEventListener('value-changed', (ev) => {
+        // Set selector type based on rule type
+        if (rule.type === 'device') {
+          valueSelector.selector = { device: {} };
+        } else if (rule.type === 'label') {
+          valueSelector.selector = { label: {} };
+        } else {
+          // Integration - use select with options
+          valueSelector.selector = {
+            select: {
+              options: integrationItems.map(item => ({
+                value: item.value,
+                label: item.label
+              })),
+              custom_value: true
+            }
+          };
+        }
+
+        valueSelector.addEventListener('value-changed', (ev) => {
           const value = ev.detail?.value ?? '';
           updateExcludeConfig((exclude) => {
             exclude.rules[index] = { ...exclude.rules[index], value };
@@ -2788,7 +2796,7 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
         }
 
         .exclude-rule select,
-        .exclude-rule ha-combo-box {
+        .exclude-rule ha-selector {
           width: 100%;
         }
 
@@ -2914,14 +2922,10 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
                       <option value="device" ${rule.type === 'device' ? 'selected' : ''}>${l('exclude_rule_device')}</option>
                       <option value="label" ${rule.type === 'label' ? 'selected' : ''}>${l('exclude_rule_label')}</option>
                     </select>
-                    <ha-combo-box
+                    <ha-selector
                       class="exclude-rule-value"
                       id="exclude_rule_value_${index}"
-                      name="exclude_rule_value_${index}"
-                      item-label-path="label"
-                      item-value-path="value"
-                      allow-custom-value
-                    ></ha-combo-box>
+                    ></ha-selector>
                     <button
                       class="exclude-remove"
                       title="${l('exclude_remove_filter')}"
@@ -3222,21 +3226,33 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
         const index = Number(ruleRow.getAttribute('data-index'));
         const rule = excludeRules[index] || { type: 'integration', value: '' };
         const typeSelect = ruleRow.querySelector('.exclude-rule-type');
-        const valueCombo = ruleRow.querySelector('.exclude-rule-value');
+        const valueSelector = ruleRow.querySelector('.exclude-rule-value');
         const removeButton = ruleRow.querySelector('.exclude-remove');
 
-        const items = rule.type === 'device'
-          ? deviceItems
-          : rule.type === 'label'
-            ? labelItems
-            : integrationItems;
+        // Configure ha-selector based on rule type
+        if (valueSelector) {
+          valueSelector.hass = this._hass;
+          valueSelector.value = rule.value || '';
 
-        if (valueCombo) {
-          valueCombo.items = items;
-          valueCombo.value = rule.value || '';
-          valueCombo.clearable = true;
-          valueCombo.allowCustomValue = true;
-          valueCombo.addEventListener('value-changed', (ev) => {
+          // Set selector type based on rule type
+          if (rule.type === 'device') {
+            valueSelector.selector = { device: {} };
+          } else if (rule.type === 'label') {
+            valueSelector.selector = { label: {} };
+          } else {
+            // Integration - use select with options
+            valueSelector.selector = {
+              select: {
+                options: integrationItems.map(item => ({
+                  value: item.value,
+                  label: item.label
+                })),
+                custom_value: true
+              }
+            };
+          }
+
+          valueSelector.addEventListener('value-changed', (ev) => {
             const value = ev.detail?.value ?? '';
             updateExcludeConfig((exclude) => {
               exclude.rules[index] = { ...exclude.rules[index], value };
