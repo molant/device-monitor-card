@@ -2116,8 +2116,18 @@ class DeviceMonitorCardEditor extends HTMLElement {
         valueSelector.value = rule.value || '';
 
         // Set selector type based on rule type
+        // Use select with filtered options for device and integration
+        // Use native label selector for labels
         if (rule.type === 'device') {
-          valueSelector.selector = { device: {} };
+          valueSelector.selector = {
+            select: {
+              options: deviceItems.map(item => ({
+                value: item.value,
+                label: item.label
+              })),
+              custom_value: true
+            }
+          };
         } else if (rule.type === 'label') {
           valueSelector.selector = { label: {} };
         } else {

@@ -562,7 +562,7 @@ const getDeviceLabelIds = (hass, deviceId, entityId) => {
   return new Set();
 };
 
-const shouldExcludeDevice = (device, excludeConfig, debug = false) => {
+const shouldExcludeDevice = (device, excludeConfig) => {
   if (!excludeConfig?.rules?.length) {
     return false;
   }
@@ -573,31 +573,21 @@ const shouldExcludeDevice = (device, excludeConfig, debug = false) => {
   }
 
   const matchesRule = (rule) => {
-    let matches = false;
     switch (rule.type) {
       case 'integration':
-        matches = device.integrationDomains?.has(rule.value);
-        break;
+        return device.integrationDomains?.has(rule.value);
       case 'device':
-        matches = !device.isGroupEntity && device.deviceId === rule.value;
-        if (debug && rule.type === 'device') {
-          console.log(`[Device Monitor] Device filter check: deviceId="${device.deviceId}" vs rule="${rule.value}" => ${matches}`);
-        }
-        break;
+        return !device.isGroupEntity && device.deviceId === rule.value;
       case 'label':
-        matches = device.labelIds?.has(rule.value);
-        break;
+        return device.labelIds?.has(rule.value);
       default:
-        matches = false;
+        return false;
     }
-    return matches;
   };
 
-  const result = excludeConfig.operator === 'and'
+  return excludeConfig.operator === 'and'
     ? rules.every(matchesRule)
     : rules.some(matchesRule);
-
-  return result;
 };
 
 const buildExcludeItems = (hass, config) => {
@@ -776,7 +766,7 @@ const collectDevices = (hass, config, options = {}) => {
 
   const allDevices = Object.values(devices);
   const filteredDevices = excludeConfig.rules.length
-    ? allDevices.filter((device) => !shouldExcludeDevice(device, excludeConfig, debug))
+    ? allDevices.filter((device) => !shouldExcludeDevice(device, excludeConfig))
     : allDevices;
   const alertDevices = filteredDevices.filter(d => d.stateInfo.isAlert);
   const normalDevices = filteredDevices.filter(d => !d.stateInfo.isAlert);
@@ -2445,8 +2435,18 @@ class DeviceMonitorCardEditor extends HTMLElement {
         valueSelector.value = rule.value || '';
 
         // Set selector type based on rule type
+        // Use select with filtered options for device and integration
+        // Use native label selector for labels
         if (rule.type === 'device') {
-          valueSelector.selector = { device: {} };
+          valueSelector.selector = {
+            select: {
+              options: deviceItems.map(item => ({
+                value: item.value,
+                label: item.label
+              })),
+              custom_value: true
+            }
+          };
         } else if (rule.type === 'label') {
           valueSelector.selector = { label: {} };
         } else {
@@ -2464,9 +2464,6 @@ class DeviceMonitorCardEditor extends HTMLElement {
 
         valueSelector.addEventListener('value-changed', (ev) => {
           const value = ev.detail?.value ?? '';
-          if (this._config?.debug) {
-            console.log(`[Device Monitor Editor] Selector value changed:`, { type: rule.type, value, detail: ev.detail });
-          }
           updateExcludeConfig((exclude) => {
             exclude.rules[index] = { ...exclude.rules[index], value };
           }, false);
@@ -3567,8 +3564,18 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
           valueSelector.value = rule.value || '';
 
           // Set selector type based on rule type
+          // Use select with filtered options for device and integration
+          // Use native label selector for labels
           if (rule.type === 'device') {
-            valueSelector.selector = { device: {} };
+            valueSelector.selector = {
+              select: {
+                options: deviceItems.map(item => ({
+                  value: item.value,
+                  label: item.label
+                })),
+                custom_value: true
+              }
+            };
           } else if (rule.type === 'label') {
             valueSelector.selector = { label: {} };
           } else {
