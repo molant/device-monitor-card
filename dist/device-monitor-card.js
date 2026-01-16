@@ -562,7 +562,7 @@ const getDeviceLabelIds = (hass, deviceId, entityId) => {
   return new Set();
 };
 
-const shouldExcludeDevice = (device, excludeConfig) => {
+const shouldExcludeDevice = (device, excludeConfig, debug = false) => {
   if (!excludeConfig?.rules?.length) {
     return false;
   }
@@ -573,21 +573,31 @@ const shouldExcludeDevice = (device, excludeConfig) => {
   }
 
   const matchesRule = (rule) => {
+    let matches = false;
     switch (rule.type) {
       case 'integration':
-        return device.integrationDomains?.has(rule.value);
+        matches = device.integrationDomains?.has(rule.value);
+        break;
       case 'device':
-        return !device.isGroupEntity && device.deviceId === rule.value;
+        matches = !device.isGroupEntity && device.deviceId === rule.value;
+        if (debug && rule.type === 'device') {
+          console.log(`[Device Monitor] Device filter check: deviceId="${device.deviceId}" vs rule="${rule.value}" => ${matches}`);
+        }
+        break;
       case 'label':
-        return device.labelIds?.has(rule.value);
+        matches = device.labelIds?.has(rule.value);
+        break;
       default:
-        return false;
+        matches = false;
     }
+    return matches;
   };
 
-  return excludeConfig.operator === 'and'
+  const result = excludeConfig.operator === 'and'
     ? rules.every(matchesRule)
     : rules.some(matchesRule);
+
+  return result;
 };
 
 const buildExcludeItems = (hass, config) => {
@@ -766,7 +776,7 @@ const collectDevices = (hass, config, options = {}) => {
 
   const allDevices = Object.values(devices);
   const filteredDevices = excludeConfig.rules.length
-    ? allDevices.filter((device) => !shouldExcludeDevice(device, excludeConfig))
+    ? allDevices.filter((device) => !shouldExcludeDevice(device, excludeConfig, debug))
     : allDevices;
   const alertDevices = filteredDevices.filter(d => d.stateInfo.isAlert);
   const normalDevices = filteredDevices.filter(d => !d.stateInfo.isAlert);
@@ -2454,6 +2464,9 @@ class DeviceMonitorCardEditor extends HTMLElement {
 
         valueSelector.addEventListener('value-changed', (ev) => {
           const value = ev.detail?.value ?? '';
+          if (this._config?.debug) {
+            console.log(`[Device Monitor Editor] Selector value changed:`, { type: rule.type, value, detail: ev.detail });
+          }
           updateExcludeConfig((exclude) => {
             exclude.rules[index] = { ...exclude.rules[index], value };
           }, false);
