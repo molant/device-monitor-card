@@ -94,8 +94,16 @@ function main() {
       ''
     );
 
+    // Extract version from source file
+    const versionMatch = source.match(/const CARD_VERSION = '([^']+)'/);
+    if (!versionMatch) {
+      throw new Error('Could not find CARD_VERSION in source');
+    }
+    const cardVersion = versionMatch[1];
+    log.info(`Using version: ${cardVersion}`);
+
     // Build new LocalizationHelper
-    const newLocalizationHelper = `const CARD_VERSION = '1.3.0';
+    const newLocalizationHelper = `const CARD_VERSION = '${cardVersion}';
 
 class LocalizationHelper {
   constructor() {
