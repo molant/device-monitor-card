@@ -1,3 +1,8 @@
+### v1.5.1 (2026-01-15)
+
+**Fixes:**
+-  exclusion filter
+
 ### v1.5.0 (2026-01-14)
 
 **Features:**
