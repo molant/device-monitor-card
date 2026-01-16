@@ -1843,16 +1843,17 @@ class DeviceMonitorCardEditor extends HTMLElement {
   }
 
   set hass(hass) {
+    const hadHass = !!this._hass;
     this._hass = hass;
     // Log hass object for debugging
     if (this._config?.debug && hass && hass.locale) {
       console.log('[Device Monitor CardEditor] Hass locale detected:', hass.locale);
     }
-    // Only re-render if language changed (don't re-render on every hass update)
+    // Re-render if hass is first set or language changed
     if (this._rendered && this._config && hass) {
       const newLang = hass?.locale?.language || hass?.config?.language || hass?.language || 'en';
       const shortLang = newLang.split('-')[0];
-      if (this._currentLanguage !== shortLang) {
+      if (!hadHass || this._currentLanguage !== shortLang) {
         this._currentLanguage = shortLang;
         this._renderEditor();
       }
@@ -2896,16 +2897,17 @@ class DeviceMonitorBadgeEditor extends HTMLElement {
   }
 
   set hass(hass) {
+    const hadHass = !!this._hass;
     this._hass = hass;
     // Log hass object for debugging
     if (this._config?.debug && hass && hass.locale) {
       console.log('[Device Monitor BadgeEditor] Hass locale detected:', hass.locale);
     }
-    // Only re-render if language changed (don't re-render on every hass update)
+    // Re-render if hass is first set or language changed
     if (this._rendered && this._config && hass) {
       const newLang = hass?.locale?.language || hass?.config?.language || hass?.language || 'en';
       const shortLang = newLang.split('-')[0];
-      if (this._currentLanguage !== shortLang) {
+      if (!hadHass || this._currentLanguage !== shortLang) {
         this._currentLanguage = shortLang;
         this._renderEditor();
       }
