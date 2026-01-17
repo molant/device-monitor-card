@@ -32,3 +32,4 @@ build/
 # Home Assistant
 secrets.yaml
 .HA_VERSION
+.claude/settings.local.json
