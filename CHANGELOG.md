@@ -1,3 +1,8 @@
+### v1.5.2 (2026-01-16)
+
+**Fixes:**
+-  filter out invalid units
+
 ### v1.5.1 (2026-01-15)
 
 **Fixes:**
