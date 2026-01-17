@@ -5,7 +5,8 @@
   "main": "dist/device-monitor-card.js",
   "scripts": {
     "build": "node scripts/build.js",
-    "test": "npm run build && node --check dist/device-monitor-card.js",
+    "test": "node --test 'tests/**/*.test.js'",
+    "test:build": "npm run build && node --check dist/device-monitor-card.js",
     "lint": "eslint .",
     "release": "./scripts/create-release.sh",
     "prerelease": "./scripts/create-prerelease.sh",

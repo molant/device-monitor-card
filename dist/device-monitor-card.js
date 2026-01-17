@@ -670,16 +670,20 @@ const collectDevices = (hass, config, options = {}) => {
   Object.keys(entities).forEach(entityId => {
     const entity = entities[entityId];
     const attributes = entity?.attributes || {};
+    const state = entity?.state;
 
-    if (!strategy.detect(entityId, attributes)) {
-      // Log skipped voltage-based battery entities in debug mode
+    if (!strategy.detect(entityId, attributes, state)) {
+      // Log skipped battery entities in debug mode
       if (debug && entityType === 'battery' && !entityId.startsWith('binary_sensor.')) {
-        const unit = attributes.unit_of_measurement;
-        if (unit && unit !== '%' && (attributes.device_class === 'battery' || entityId.includes('battery'))) {
-          console.log(`[Device Monitor ${debugTag}] Skipping battery entity with invalid unit:`, {
+        const validation = validateBatteryEntity(attributes, state);
+        if (!validation.valid && (attributes.device_class === 'battery' || entityId.includes('battery'))) {
+          console.log(`[Device Monitor ${debugTag}] Skipping battery entity:`, {
             entityId,
-            unit_of_measurement: unit,
-            reason: 'Only percentage (%) or no unit is accepted'
+            state,
+            unit_of_measurement: attributes.unit_of_measurement,
+            native_unit_of_measurement: attributes.native_unit_of_measurement,
+            allUnitAttributes: extractAllUnitValues(attributes),
+            reason: validation.reason
           });
         }
       }
@@ -803,6 +807,110 @@ const collectDevices = (hass, config, options = {}) => {
 };
 
 /**
+ * Battery Unit Validation Utilities
+ * Validates whether an entity should be considered a valid battery sensor
+ * based on its unit of measurement and value range.
+ */
+
+// Invalid units for battery sensors (case-insensitive)
+const INVALID_BATTERY_UNITS = [
+  'v', 'mv', 'µv',                           // Voltage units
+  'volt', 'volts', 'millivolt', 'millivolts', // Voltage words
+  'a', 'ma', 'µa',                           // Current units
+  'amp', 'amps', 'milliamp', 'milliamps',    // Current words
+  'w', 'mw', 'kw',                           // Power units
+  'watt', 'watts',                           // Power words
+  'wh', 'kwh', 'mwh',                        // Energy units
+  '°c', '°f', 'c', 'f',                      // Temperature units
+];
+
+// Valid percent signs across different locales/encodings
+const VALID_PERCENT_SIGNS = [
+  '%',    // U+0025 - Standard percent sign
+  '％',   // U+FF05 - Fullwidth percent sign (CJK)
+  '٪',    // U+066A - Arabic percent sign
+];
+
+/**
+ * Extracts all unit-related values from entity attributes
+ * Checks any attribute that contains 'unit' in its name
+ */
+const extractAllUnitValues = (attributes) => {
+  if (!attributes || typeof attributes !== 'object') {
+    return [];
+  }
+
+  const units = [];
+  for (const key of Object.keys(attributes)) {
+    if (key.toLowerCase().includes('unit') && attributes[key]) {
+      units.push(String(attributes[key]));
+    }
+  }
+  return units;
+};
+
+/**
+ * Checks if a unit string represents a valid battery percentage unit
+ */
+const isValidBatteryUnit = (unit) => {
+  if (!unit) return true;
+
+  const unitStr = String(unit).trim();
+  if (unitStr === '') return true;
+  if (VALID_PERCENT_SIGNS.includes(unitStr)) return true;
+
+  const unitLower = unitStr.toLowerCase();
+  if (INVALID_BATTERY_UNITS.includes(unitLower)) return false;
+
+  // Any other non-percentage unit is invalid
+  return false;
+};
+
+/**
+ * Checks if a numeric value is within a valid range for battery percentage
+ * Values between 0-5 (exclusive of 0) with no unit are likely voltage readings
+ */
+const isValidBatteryValueRange = (value, unit) => {
+  const numValue = parseFloat(value);
+  if (isNaN(numValue)) return true;
+
+  // If there's a valid percentage unit, trust the value
+  if (unit && VALID_PERCENT_SIGNS.includes(String(unit).trim())) return true;
+
+  // If no unit and value is in typical voltage range (0-5V), reject it
+  if (!unit && numValue > 0 && numValue <= 5) return false;
+
+  // Negative values are invalid for percentage
+  if (numValue < 0) return false;
+
+  return true;
+};
+
+/**
+ * Validates if an entity has valid battery unit/value characteristics
+ */
+const validateBatteryEntity = (attributes, state) => {
+  const allUnits = extractAllUnitValues(attributes);
+
+  // If any unit attribute contains an invalid unit, reject
+  for (const unit of allUnits) {
+    if (!isValidBatteryUnit(unit)) {
+      return { valid: false, reason: `Invalid unit found: "${unit}"` };
+    }
+  }
+
+  // Get the primary unit for value range check
+  const primaryUnit = attributes?.unit_of_measurement || attributes?.native_unit_of_measurement;
+
+  // Check value range
+  if (!isValidBatteryValueRange(state, primaryUnit)) {
+    return { valid: false, reason: `Value ${state} without unit appears to be voltage, not percentage` };
+  }
+
+  return { valid: true };
+};
+
+/**
  * Entity type strategies for different device types
  */
 const ENTITY_TYPES = {
@@ -810,7 +918,7 @@ const ENTITY_TYPES = {
     name: 'Battery',
 
     // Detect if an entity is a battery sensor
-    detect: (entityId, attributes) => {
+    detect: (entityId, attributes, state) => {
       const excludedSuffixes = ['_state', '_charging', '_charger', '_power', '_health'];
       const isExcludedEntity = excludedSuffixes.some(suffix => entityId.endsWith(suffix));
 
@@ -821,12 +929,11 @@ const ENTITY_TYPES = {
         return attributes.device_class === 'battery' || entityId.includes('battery');
       }
 
-      // For sensors, check unit of measurement - only accept percentage or no unit
-      // This filters out voltage-based battery sensors (V, mV) which aren't meaningful
-      const unit = attributes.unit_of_measurement;
-      const hasValidUnit = !unit || unit === '%';
-
-      if (!hasValidUnit) return false;
+      // Validate battery entity using comprehensive checks:
+      // - All unit-related attributes (unit_of_measurement, native_unit_of_measurement, etc.)
+      // - Value range validation (detect voltage values without units)
+      const validation = validateBatteryEntity(attributes, state);
+      if (!validation.valid) return false;
 
       return attributes.device_class === 'battery' ||
         (entityId.includes('battery') &&
@@ -923,7 +1030,7 @@ const ENTITY_TYPES = {
     name: 'Contact Sensor',
 
     // Detect if an entity is a contact sensor
-    detect: (entityId, attributes) => {
+    detect: (entityId, attributes, _state) => {
       const deviceClass = attributes.device_class;
       return entityId.startsWith('binary_sensor.') && (
         deviceClass === 'door' ||
@@ -986,7 +1093,7 @@ const ENTITY_TYPES = {
     name: 'Lock',
 
     // Detect if an entity is a lock
-    detect: (entityId, attributes) => {
+    detect: (entityId, attributes, _state) => {
       const deviceClass = attributes.device_class;
       return entityId.startsWith('lock.') || deviceClass === 'lock';
     },
@@ -1037,7 +1144,7 @@ const ENTITY_TYPES = {
     name: 'Light',
 
     // Detect if an entity is a light
-    detect: (entityId, attributes) => {
+    detect: (entityId, attributes, _state) => {
       return entityId.startsWith('light.');
     },
 
