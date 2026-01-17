@@ -14,7 +14,7 @@
 /**
  * Localization Helper for multi-language support
  */
-const CARD_VERSION = '1.5.2';
+const CARD_VERSION = '1.5.3';
 
 class LocalizationHelper {
   constructor() {

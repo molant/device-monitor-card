@@ -1,3 +1,8 @@
+### v1.5.3 (2026-01-17)
+
+**Fixes:**
+-  comprehensive battery unit validation to filter voltage sensors
+
 ### v1.5.2 (2026-01-16)
 
 **Fixes:**
