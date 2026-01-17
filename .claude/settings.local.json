@@ -10,7 +10,8 @@
       "WebFetch(domain:developers.home-assistant.io)",
       "WebFetch(domain:github.com)",
       "Bash(grep:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(git show:*)"
     ]
   }
 }

@@ -105,12 +105,14 @@ When `binary_sensor.*_battery_low` exists, exclude corresponding `sensor.*_batte
 
 ```
 device-monitor-card/
+├── src/
+│   └── device-monitor-card.js    # Source code (EDIT THIS FILE)
 ├── dist/
-│   └── device-monitor-card.js    # Main card implementation (matches repo name)
+│   └── device-monitor-card.js    # Built output (DO NOT EDIT DIRECTLY)
 ├── README.md                     # User documentation
 ├── package.json                  # npm metadata
 ├── hacs.json                     # HACS integration config
-└── claude.md                     # This file
+└── CLAUDE.md                     # This file
 ```
 
 **Note:** The repository name, filename, and custom element name all use `device-monitor-card` for consistency.
@@ -244,8 +246,13 @@ Users can add this repository manually in HACS before it becomes a default:
 
 ## Development Notes
 
-### No Build Process
-Pure JavaScript implementation - no compilation, bundling, or transpilation needed. Edit `dist/device-monitor-card.js` directly.
+### Source vs Distribution
+
+**IMPORTANT: Always edit `src/device-monitor-card.js`, never edit `dist/` directly.**
+
+The `src/` folder contains the source code. The `dist/` folder contains the built output that gets deployed. Run `npm run build` to copy source to dist (or the build script handles minification if configured).
+
+Editing `dist/` directly will cause your changes to be overwritten on the next build/release.
 
 ### Browser Compatibility
 Fully supported in all modern browsers (Chrome, Firefox, Safari, Edge) and mobile browsers.
