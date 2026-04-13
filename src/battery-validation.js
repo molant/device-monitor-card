@@ -104,7 +104,14 @@ function isValidBatteryValueRange(value, unit) {
     return false;
   }
 
-  // Values > 100 are suspicious but could be valid in edge cases
+  // Without an explicit % unit, reject values > 100. This catches timestamp
+  // sensors like Battery Notes' "last replaced" whose ISO date parses to a
+  // year (e.g. 2026). Overcharged batteries that legitimately report >100
+  // should carry an explicit % unit and are handled above.
+  if (numValue > 100) {
+    return false;
+  }
+
   // Values < 0 are invalid for percentage
   if (numValue < 0) {
     return false;

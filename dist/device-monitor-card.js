@@ -880,6 +880,10 @@ const isValidBatteryValueRange = (value, unit) => {
   // If no unit and value is in typical voltage range (0-5V), reject it
   if (!unit && numValue > 0 && numValue <= 5) return false;
 
+  // Without an explicit % unit, reject values > 100 (e.g. Battery Notes
+  // "last replaced" timestamps whose ISO date parses to a year like 2026)
+  if (numValue > 100) return false;
+
   // Negative values are invalid for percentage
   if (numValue < 0) return false;
 

@@ -254,6 +254,17 @@ describe('Battery Validation', () => {
         assert.strictEqual(isValidBatteryValueRange(-1, null), false);
         assert.strictEqual(isValidBatteryValueRange(-50, null), false);
       });
+
+      it('should reject values > 100 without a valid percent unit', () => {
+        // Battery Notes "last replaced" timestamp parses to the year (e.g. 2026)
+        assert.strictEqual(isValidBatteryValueRange(2026, null), false);
+        assert.strictEqual(isValidBatteryValueRange(101, null), false);
+        assert.strictEqual(isValidBatteryValueRange(500, null), false);
+      });
+
+      it('should still accept 100 without unit (boundary)', () => {
+        assert.strictEqual(isValidBatteryValueRange(100, null), true);
+      });
     });
 
     describe('non-numeric values', () => {
@@ -270,6 +281,11 @@ describe('Battery Validation', () => {
         assert.strictEqual(isValidBatteryValueRange('2.98', null), false);
         assert.strictEqual(isValidBatteryValueRange('50', null), true);
         assert.strictEqual(isValidBatteryValueRange('100', null), true);
+      });
+
+      it('should reject ISO timestamp strings that parse to a year', () => {
+        // parseFloat('2026-04-12T10:30:00+00:00') === 2026
+        assert.strictEqual(isValidBatteryValueRange('2026-04-12T10:30:00+00:00', null), false);
       });
     });
   });
@@ -407,6 +423,17 @@ describe('Battery Validation', () => {
           '102'
         );
         assert.strictEqual(result.valid, true);
+      });
+
+      it('should reject Battery Notes "last replaced" timestamp entity', () => {
+        // Battery Notes exposes a timestamp sensor whose entity_id contains
+        // "battery" but whose state is an ISO date like "2026-04-12T...".
+        // parseFloat gives 2026, which is clearly not a battery percentage.
+        const result = validateBatteryEntity(
+          { device_class: 'timestamp' },
+          '2026-04-12T10:30:00+00:00'
+        );
+        assert.strictEqual(result.valid, false);
       });
     });
 
