@@ -831,6 +831,10 @@ const VALID_PERCENT_SIGNS = [
   '٪',    // U+066A - Arabic percent sign
 ];
 
+// HA states that aren't percentages but shouldn't be rejected at the
+// value-range stage (handled elsewhere).
+const SPECIAL_HA_STATES = ['unavailable', 'unknown', 'none', ''];
+
 /**
  * Extracts all unit-related values from entity attributes
  * Checks any attribute that contains 'unit' in its name
@@ -867,20 +871,22 @@ const isValidBatteryUnit = (unit) => {
 };
 
 /**
- * Checks if a numeric value is within a valid range for battery percentage
- * Values between 0-5 (exclusive of 0) with no unit are likely voltage readings
+ * Checks if a value is within a valid range for battery percentage.
+ * With a % unit: trust any numeric value. Without a % unit: require the state
+ * to be cleanly numeric via Number() — this rejects Battery Notes strings
+ * like "6× AA (LR91)" where parseFloat would accept the leading 6.
  */
 const isValidBatteryValueRange = (value, unit) => {
-  const numValue = parseFloat(value);
-  if (isNaN(numValue)) return true;
-
-  // If there's a valid percentage unit, trust the value
   if (unit && VALID_PERCENT_SIGNS.includes(String(unit).trim())) return true;
 
-  // If no unit and value is in typical voltage range (0-5V), reject it
-  if (!unit && numValue > 0 && numValue <= 5) return false;
+  const raw = value === null || value === undefined ? '' : String(value).trim();
+  if (SPECIAL_HA_STATES.includes(raw.toLowerCase())) return true;
 
-  // Negative values are invalid for percentage
+  const numValue = Number(raw);
+  if (isNaN(numValue)) return false;
+
+  if (numValue > 0 && numValue <= 5) return false;
+  if (numValue > 100) return false;
   if (numValue < 0) return false;
 
   return true;
@@ -904,7 +910,7 @@ const validateBatteryEntity = (attributes, state) => {
 
   // Check value range
   if (!isValidBatteryValueRange(state, primaryUnit)) {
-    return { valid: false, reason: `Value ${state} without unit appears to be voltage, not percentage` };
+    return { valid: false, reason: `Value "${state}" is not a valid battery percentage` };
   }
 
   return { valid: true };

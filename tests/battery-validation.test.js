@@ -8,6 +8,7 @@ const assert = require('node:assert');
 const {
   INVALID_BATTERY_UNITS,
   VALID_PERCENT_SIGNS,
+  SPECIAL_HA_STATES,
   extractAllUnitValues,
   isValidBatteryUnit,
   isValidBatteryValueRange,
@@ -27,6 +28,18 @@ describe('Battery Validation', () => {
 
     it('should include Arabic percent sign', () => {
       assert.ok(VALID_PERCENT_SIGNS.includes('٪'));
+    });
+  });
+
+  describe('SPECIAL_HA_STATES', () => {
+    it('should include the HA-wide unavailable/unknown states', () => {
+      assert.ok(SPECIAL_HA_STATES.includes('unavailable'));
+      assert.ok(SPECIAL_HA_STATES.includes('unknown'));
+    });
+
+    it('should include "none" and empty string', () => {
+      assert.ok(SPECIAL_HA_STATES.includes('none'));
+      assert.ok(SPECIAL_HA_STATES.includes(''));
     });
   });
 
@@ -254,22 +267,53 @@ describe('Battery Validation', () => {
         assert.strictEqual(isValidBatteryValueRange(-1, null), false);
         assert.strictEqual(isValidBatteryValueRange(-50, null), false);
       });
+
+      it('should reject values > 100 without a valid percent unit', () => {
+        // Battery Notes "last replaced" timestamp parses to the year (e.g. 2026)
+        assert.strictEqual(isValidBatteryValueRange(2026, null), false);
+        assert.strictEqual(isValidBatteryValueRange(101, null), false);
+        assert.strictEqual(isValidBatteryValueRange(500, null), false);
+      });
+
+      it('should still accept 100 without unit (boundary)', () => {
+        assert.strictEqual(isValidBatteryValueRange(100, null), true);
+      });
     });
 
     describe('non-numeric values', () => {
-      it('should accept non-numeric values (handled separately)', () => {
-        assert.strictEqual(isValidBatteryValueRange('low', null), true);
-        assert.strictEqual(isValidBatteryValueRange('ok', null), true);
+      it('should accept HA special states (handled separately)', () => {
         assert.strictEqual(isValidBatteryValueRange('unavailable', null), true);
-        assert.strictEqual(isValidBatteryValueRange(NaN, null), true);
+        assert.strictEqual(isValidBatteryValueRange('unknown', null), true);
+        assert.strictEqual(isValidBatteryValueRange('none', null), true);
+        assert.strictEqual(isValidBatteryValueRange('', null), true);
+        assert.strictEqual(isValidBatteryValueRange(null, null), true);
+      });
+
+      it('should reject arbitrary non-numeric strings without a % unit', () => {
+        // These are real Battery Notes / diagnostic states that parseFloat
+        // either returned NaN for (accepted previously) or consumed a prefix
+        // from ("6× AA (LR91)" → 6). All must now be rejected.
+        assert.strictEqual(isValidBatteryValueRange('6× AA (LR91)', null), false);
+        assert.strictEqual(isValidBatteryValueRange('Normal', null), false);
+        assert.strictEqual(isValidBatteryValueRange('5 months ago', null), false);
+        assert.strictEqual(isValidBatteryValueRange('Press', null), false);
+        assert.strictEqual(isValidBatteryValueRange('low', null), false);
+        assert.strictEqual(isValidBatteryValueRange('ok', null), false);
       });
     });
 
     describe('string numeric values', () => {
-      it('should parse string values correctly', () => {
+      it('should parse clean numeric strings correctly', () => {
         assert.strictEqual(isValidBatteryValueRange('2.98', null), false);
         assert.strictEqual(isValidBatteryValueRange('50', null), true);
         assert.strictEqual(isValidBatteryValueRange('100', null), true);
+        assert.strictEqual(isValidBatteryValueRange('85.5', null), true);
+      });
+
+      it('should reject ISO timestamp strings', () => {
+        // Number('2026-04-12T10:30:00+00:00') is NaN (parseFloat would have
+        // returned 2026; the stricter check catches both shapes).
+        assert.strictEqual(isValidBatteryValueRange('2026-04-12T10:30:00+00:00', null), false);
       });
     });
   });
@@ -345,7 +389,7 @@ describe('Battery Validation', () => {
       it('should reject voltage-like value without unit', () => {
         const result = validateBatteryEntity({}, '2.98');
         assert.strictEqual(result.valid, false);
-        assert.ok(result.reason.includes('voltage'));
+        assert.ok(result.reason.includes('not a valid battery percentage'));
       });
 
       it('should reject 3.7V-like value without unit', () => {
@@ -385,10 +429,20 @@ describe('Battery Validation', () => {
         assert.strictEqual(result.valid, true);
       });
 
-      it('should handle binary battery low sensor (no unit, non-numeric)', () => {
+      it('should handle unavailable battery sensor (HA special state)', () => {
+        const result = validateBatteryEntity(
+          { device_class: 'battery', unit_of_measurement: '%' },
+          'unavailable'
+        );
+        assert.strictEqual(result.valid, true);
+      });
+
+      it('should handle unavailable battery sensor with no unit', () => {
+        // Exercises the SPECIAL_HA_STATES allowlist in isValidBatteryValueRange
+        // (the %-unit path above short-circuits before the allowlist).
         const result = validateBatteryEntity(
           { device_class: 'battery' },
-          'off'
+          'unavailable'
         );
         assert.strictEqual(result.valid, true);
       });
@@ -407,6 +461,33 @@ describe('Battery Validation', () => {
           '102'
         );
         assert.strictEqual(result.valid, true);
+      });
+
+      it('should reject Battery Notes "last replaced" timestamp entity', () => {
+        // Battery Notes exposes a timestamp sensor whose entity_id contains
+        // "battery" but whose state is an ISO date like "2026-04-12T...".
+        // parseFloat gives 2026, which is clearly not a battery percentage.
+        const result = validateBatteryEntity(
+          { device_class: 'timestamp' },
+          '2026-04-12T10:30:00+00:00'
+        );
+        assert.strictEqual(result.valid, false);
+      });
+
+      it('should reject Battery Notes "battery type" entity (Nest Protect)', () => {
+        // sensor.living_room_nest_protect_battery_type exposes a human string
+        // like "6× AA (LR91)". parseFloat would consume the leading 6 and
+        // render it as "6%" (issue #22 follow-up).
+        const result = validateBatteryEntity({}, '6× AA (LR91)');
+        assert.strictEqual(result.valid, false);
+      });
+
+      it('should reject Battery Notes diagnostic string states', () => {
+        // Other non-numeric Battery Notes / diagnostic states seen on the
+        // same device page.
+        assert.strictEqual(validateBatteryEntity({}, 'Normal').valid, false);
+        assert.strictEqual(validateBatteryEntity({}, '5 months ago').valid, false);
+        assert.strictEqual(validateBatteryEntity({}, 'Press').valid, false);
       });
     });
 

@@ -23,6 +23,11 @@ const VALID_PERCENT_SIGNS = [
   '٪',    // U+066A - Arabic percent sign
 ];
 
+// Home Assistant state values that are not percentages but should not cause
+// the entity to be rejected at the value-range stage. Binary/unknown states
+// are handled by the caller; we just don't want them to be misread as numbers.
+const SPECIAL_HA_STATES = ['unavailable', 'unknown', 'none', ''];
+
 /**
  * Extracts all unit-related values from entity attributes
  * Checks any attribute that contains 'unit' in its name
@@ -78,34 +83,58 @@ function isValidBatteryUnit(unit) {
 }
 
 /**
- * Checks if a numeric value is within a valid range for battery percentage
- * Values between 0-5 (exclusive of 0) with no unit are likely voltage readings
+ * Checks if a value is within a valid range for battery percentage.
+ *
+ * With an explicit percent unit, any numeric value is trusted (overcharged
+ * batteries can legitimately read above 100%).
+ *
+ * Without a percent unit we require the state to be *cleanly* numeric — i.e.
+ * the whole string parses via `Number()`, not just a leading digit via
+ * `parseFloat()`. This rejects Battery Notes strings like
+ * "6× AA (LR91)" (parseFloat=6 passes the old check) while still accepting
+ * plain integer/decimal strings like "85" or "85.5". HA special states such
+ * as "unavailable" / "unknown" are passed through so the caller can handle
+ * them.
  * @param {number|string} value - The state value
  * @param {string|null} unit - The unit of measurement
  * @returns {boolean} True if value range is valid for battery percentage
  */
 function isValidBatteryValueRange(value, unit) {
-  const numValue = parseFloat(value);
-
-  // Non-numeric values are handled separately
-  if (isNaN(numValue)) {
-    return true;
-  }
-
-  // If there's a valid percentage unit, trust the value
+  // If there's a valid percentage unit, trust the value regardless of format.
   if (unit && VALID_PERCENT_SIGNS.includes(String(unit).trim())) {
     return true;
   }
 
-  // If no unit and value is in typical voltage range (0-5V), reject it
-  // Common battery voltages: CR2032 ~3V, Li-ion ~3.7V, AA ~1.5V
-  // Battery percentages should be 0-100 (occasionally slightly over 100)
-  if (!unit && numValue > 0 && numValue <= 5) {
+  // Normalize to a trimmed string for string-shaped checks; numeric inputs
+  // become "123", NaN becomes "NaN".
+  const raw = value === null || value === undefined ? '' : String(value).trim();
+
+  // HA special states are not numeric and are handled elsewhere.
+  if (SPECIAL_HA_STATES.includes(raw.toLowerCase())) {
+    return true;
+  }
+
+  // Strict numeric parse: Number() returns NaN for any trailing non-numeric
+  // content (unlike parseFloat which consumes the numeric prefix). This is
+  // what rejects "6× AA (LR91)", "Normal", "5 months ago", ISO timestamps,
+  // etc. when no % unit is present.
+  const numValue = Number(raw);
+  if (isNaN(numValue)) {
     return false;
   }
 
-  // Values > 100 are suspicious but could be valid in edge cases
-  // Values < 0 are invalid for percentage
+  // Typical voltage range for battery cells — reject without a unit.
+  // Common battery voltages: CR2032 ~3V, Li-ion ~3.7V, AA ~1.5V.
+  if (numValue > 0 && numValue <= 5) {
+    return false;
+  }
+
+  // Values > 100 without a % unit are not a percentage.
+  if (numValue > 100) {
+    return false;
+  }
+
+  // Negative values are invalid for a percentage.
   if (numValue < 0) {
     return false;
   }
@@ -141,7 +170,7 @@ function validateBatteryEntity(attributes, state) {
   if (!isValidBatteryValueRange(state, primaryUnit)) {
     return {
       valid: false,
-      reason: `Value ${state} without unit appears to be voltage, not percentage`
+      reason: `Value "${state}" is not a valid battery percentage`
     };
   }
 
@@ -153,6 +182,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     INVALID_BATTERY_UNITS,
     VALID_PERCENT_SIGNS,
+    SPECIAL_HA_STATES,
     extractAllUnitValues,
     isValidBatteryUnit,
     isValidBatteryValueRange,
