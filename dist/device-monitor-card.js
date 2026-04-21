@@ -391,7 +391,7 @@ const EMBEDDED_TRANSLATIONS = {
 
 };
 
-const CARD_VERSION = '1.5.3';
+const CARD_VERSION = '1.5.4';
 
 class LocalizationHelper {
   constructor() {

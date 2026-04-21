@@ -1,3 +1,8 @@
+### v1.5.4 (2026-04-21)
+
+**Fixes:**
+-  reject non-numeric battery states without % unit (fixes #22)
+
 ### v1.5.3 (2026-01-17)
 
 **Fixes:**
